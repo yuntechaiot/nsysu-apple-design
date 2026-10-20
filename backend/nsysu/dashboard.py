@@ -115,14 +115,14 @@ def physiology_view(metrics):
 
 
 def stress_view(metrics):
-    from .chart_style import CHART_HELP, chart_tools, render_trend
+    from .chart_style import chart_tools
+    from .observation_views import presentation_control, render_observations
+    from .dashboard_summary import series_key, valid_rows
     st.subheader("壓力與疲倦")
     st.caption("第三方平台值供研究分析；原文件未定義高低方向、正常範圍與量尺，因此不作診斷或預設 0–100。")
-    st.caption(CHART_HELP)
-    tools = chart_tools('stress')
     for name, label in (("stress", "Stress Index 壓力指數"), ("fatigue", "Fatigue Index 疲倦指數")):
         groups: dict = {}
-        for metric in metrics:
+        for metric in valid_rows(metrics, [name]):
             if metric["metric"] == name:
                 groups.setdefault((metric.get("source"), metric.get("unit"), metric.get("device_external_id"), metric.get("algorithm_version")), []).append(metric)
         if not groups:
@@ -133,8 +133,15 @@ def stress_view(metrics):
             delta = newest["value"] - rows[-2]["value"] if len(rows) > 1 else None
             st.metric(label, f"{newest['value']:g}", delta=f"較前次 {delta:+g}" if delta is not None else None, delta_color="off")
             st.caption(f"來源 {source}｜裝置 {device or '未提供'}｜量尺 {unit or '未確認'}｜量測 {newest['measured_at']}｜版本 {version}")
-    for index, fig in enumerate(metric_figures(metrics, ["stress", "fatigue"])):
-        render_trend(fig, key=f"stress-fatigue-{index}", tools=tools)
+    presentation = presentation_control('stress')
+    tools = chart_tools('stress')
+    series: dict = {}
+    for metric in metrics:
+        if metric['metric'] in {'stress', 'fatigue'}:
+            series.setdefault(series_key(metric), []).append(metric)
+    for index, rows in enumerate(series.values()):
+        st.markdown('**' + NAMES[rows[0]['metric']] + '**')
+        render_observations(rows, [rows[0]['metric']], key=f'stress-fatigue-{index}', presentation=presentation, tools=tools)
 
 
 def main():

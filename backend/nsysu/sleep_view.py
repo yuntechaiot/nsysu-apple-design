@@ -8,7 +8,7 @@ import streamlit as st
 
 from .dashboard_summary import latest_series, measured, source_label
 from .sleep import TZ, duration_label, number, sleep_display_summary
-from .chart_style import CHART_HELP, COLORS, style_trend, chart_tools, render_trend
+from .chart_style import COLORS, style_trend, chart_tools, render_trend
 
 STAGES = {'deep': ('深睡', '#549688'), 'light': ('淺睡', '#4db2a2'),
           'rem': ('REM 快速動眼期', '#97cacb'), 'awake': ('清醒', '#b6bec8')}
@@ -176,9 +176,13 @@ def sleep_view(sessions, diaries, physiology, research_details):
         sleep_vitals(selected, physiology)
         if len(sessions) > 1:
             with st.expander('查詢期間的睡眠趨勢'):
-                st.caption(CHART_HELP)
+                from .observation_views import sleep_duration_bars
+                presentation = st.radio('期間呈現', ['每筆時長', '折線圖'], horizontal=True, key='sleep-period-presentation')
+                st.caption('每根長條代表一筆睡眠紀錄；同日多筆分開呈現，不加總。未提供時長的紀錄會註明。' if presentation == '每筆時長'
+                           else '線連接相鄰睡眠紀錄；同日多筆保留，沒有紀錄的日期不代表零小時。')
                 tools = chart_tools('sleep-period')
-                render_trend(period_trend(sessions), key='sleep-period-trend', tools=tools)
+                fig = sleep_duration_bars(sessions) if presentation == '每筆時長' else period_trend(sessions)
+                render_trend(fig, key='sleep-period-trend', tools=tools)
     with st.expander('進階研究指標：WASO、SOL、睡眠效率與日誌對照'):
         st.caption('平台清醒時間是整段紀錄的 awake；WASO 僅計首次入睡至最後醒來之間的清醒，需要足夠的分期資訊確認。')
         matching = [r for r in diaries if r.get('date_definition') == 'wake_date' and r['date'] == selected['sleep_date']]

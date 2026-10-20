@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from .charts import extrema_sample
-from .chart_style import NAMES, CHART_HELP, color_for, style_trend, chart_tools, render_trend
+from .chart_style import NAMES, color_for, style_trend, chart_tools
 from .sleep import TZ, duration_label, sleep_display_summary
 
 
@@ -130,6 +130,7 @@ def metric_card(metrics, name, category, key):
 
 
 def overview_view(sessions, metrics, diaries, bundle=None):
+    from .observation_views import presentation_control, render_observations
     st.subheader('健康總覽')
     st.caption('以下為所選日期內的最後一次量測，並非即時監測。點卡片下方按鈕查看趨勢或量測表。')
     failed = [k for k, v in (bundle or {}).get('statuses', {}).items() if v['state'] != 'success']
@@ -167,7 +168,8 @@ def overview_view(sessions, metrics, diaries, bundle=None):
         metric_card(metrics, 'fatigue', '壓力與疲倦', 'fatigue')
     st.caption(f'期間內共有 {len(sessions)} 份手錶睡眠紀錄、{len(diaries)} 份睡眠日誌。壓力、疲倦及 HRV 沿用來源數值，不套用未定義的正常範圍。')
     st.subheader('常用量測趨勢')
-    st.caption(CHART_HELP)
+    st.caption('先看分布，再點按查看量測細節；可用圖例隱藏個別系列。')
+    presentation = presentation_control('overview')
     tools = chart_tools('overview')
     for cols, pairs in [(st.columns(2), [('心率', ['HR']), ('血壓', ['SBP', 'DBP'])]),
                         (st.columns(2), [('血氧', ['SpO2']), ('體溫', ['Temperature'])])]:
@@ -179,12 +181,13 @@ def overview_view(sessions, metrics, diaries, bundle=None):
                     # Only combine equal units on one axis; uncommon mixed units stay in the category view.
                     chosen = latest_series(rows, names[0]) or latest_series(rows, names[-1])
                     rows = [r for r in metrics if r['metric'] in names and r.get('unit') == chosen[-1].get('unit')]
-                    render_trend(trend_figure(rows, names), key='overview-' + names[0], tools=tools)
+                    render_observations(rows, names, key='overview-' + names[0], presentation=presentation, tools=tools)
                 else:
                     st.info('所選期間無可顯示的量測')
 
 
 def category_view(metrics):
+    from .observation_views import presentation_control, render_observations
     st.subheader('生理數據')
     st.caption('像平台一樣依類別查看；每一列保留量測時間與資料來源。')
     categories = dict(CATEGORIES)
@@ -212,7 +215,7 @@ def category_view(metrics):
         st.caption(f"{source_label(latest)} · {unit_label(latest.get('unit'))} · 同來源／裝置／版本 {len(group)} 筆 · 最後量測 {measured(latest):%Y/%m/%d %H:%M}")
     display = st.radio('顯示方式', ['趨勢圖', '量測表'], horizontal=True, key='measurement_display')
     if display == '趨勢圖':
-        st.caption(CHART_HELP)
+        presentation = presentation_control('category')
         tools = chart_tools('category')
         # Separate units, signals, devices and versions instead of merging incompatible series.
         groups = defaultdict(list)
@@ -222,7 +225,7 @@ def category_view(metrics):
             groups[(row.get('unit'), row.get('source'), row.get('device_external_id'), row.get('signal_type'), row.get('algorithm_version'))].append(row)
         for index, group in enumerate(groups.values()):
             st.caption(source_label(group[0]) + ' · ' + unit_label(group[0].get('unit')))
-            render_trend(trend_figure(group, selected), key='category-' + str(index), tools=tools)
+            render_observations(group, selected, key='category-' + str(index), presentation=presentation, tools=tools)
     else:
         frame = measurement_table(rows)
         page_size = 100
