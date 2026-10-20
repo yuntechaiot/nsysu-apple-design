@@ -26,9 +26,10 @@ st.set_page_config(page_title='觀察方式比較',layout='wide')
 apply()
 st.title('依資料選圖，更容易看懂')
 st.caption('呈現方式比較 · 以下全部為合成資料，未連接研究資料庫')
+days=range(1,15) if st.query_params.get('dates')=='many' else [1,2,3,5,6,7,8]
 rows=[dict(metric='HR',value=64+(day%4)+offset,measured_at=f'2026-10-{day:02d}T{hour:02d}:00:00+08:00',
 source='SYNTHETIC',unit='bpm',signal_type='PPG',device_external_id='TEST',algorithm_version='test')
-for day in [1,2,3,5,6,7,8] for hour,offset in [(7,-3),(10,2),(13,5),(18,-1)]]
+for day in days for hour,offset in [(7,-3),(10,2),(13,5),(18,-1)]]
 bp=[dict(rows[i*4],metric=m,value=value+i%3,unit='mmHg',external_record_id=f'TEST-{i}')
 for i in range(7) for m,value in [('SBP',120),('DBP',78)]]
 sleep=[dict(sleep_date=f'2026-10-{day:02d}',tst_minutes=value,source='SYNTHETIC',external_session_id=f'TEST-{day}')
@@ -72,6 +73,9 @@ with cols[2],st.container(border=True):
                 charts = page.locator('[data-testid=stPlotlyChart]')
                 expect(charts).to_have_count(3, timeout=30000)
                 expect(charts.first.locator('.errorbar').first).to_be_visible()
+                expected_dates = ['10/01', '10/02', '10/03', '10/05', '10/06', '10/07', '10/08']
+                assert charts.first.locator('.xaxislayer-above .xtick text').all_text_contents() == expected_dates
+                assert charts.nth(2).locator('.xaxislayer-above .xtick text').all_text_contents() == [f'10/{day:02d}' for day in range(1, 8)]
                 page.screenshot(path=str(OUT / 'comparison.png'), full_page=True)
                 for width in (320, 390, 768, 1365):
                     page.set_viewport_size({'width': width, 'height': 900})
@@ -95,6 +99,18 @@ with cols[2],st.container(border=True):
                 expect(charts.first.locator('.js-line')).to_have_count(1)
                 assert charts.nth(1).locator('.js-line').count() == 7, 'Only seven same-measurement BP connectors'
                 expect(page.get_by_text('未提供', exact=True)).to_be_visible()
+                page.goto(base + '?dates=many')
+                expect(charts.first.locator('.errorbar')).to_have_count(14)
+                ticks = charts.first.locator('.xaxislayer-above .xtick text')
+                expect(ticks).to_have_count(14)
+                assert ticks.all_text_contents() == [f'10/{day:02d}' for day in range(1, 15)]
+                scroll = page.locator('.st-key-demo-range-all-dates')
+                page.wait_for_function("document.querySelector('.st-key-demo-range-all-dates').scrollWidth > document.querySelector('.st-key-demo-range-all-dates').clientWidth")
+                assert scroll.evaluate('e => e.scrollWidth > e.clientWidth')
+                assert charts.first.locator('.main-svg').first.bounding_box()['width'] >= 14 * 48
+                assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                scroll.evaluate('e => e.scrollLeft = e.scrollWidth')
+                page.screenshot(path=str(OUT / 'mobile-all-dates.png'))
                 assert not errors, errors
                 browser.close()
         finally:

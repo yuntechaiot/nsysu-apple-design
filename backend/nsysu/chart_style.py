@@ -1,6 +1,7 @@
 """Readable Apple-style chart presentation; research values are never smoothed."""
 from html import escape
 from datetime import datetime
+import re
 
 NAMES = {
     'HR': '心率', 'SBP': '收縮壓', 'DBP': '舒張壓', 'SpO2': '血氧', 'Temperature': '體溫',
@@ -30,6 +31,35 @@ def label_for(name):
     return NAMES.get(name, name)
 
 
+def show_measurement_dates(fig):
+    """One explicit tick for every observed Taipei date, including missing-value dates."""
+    if fig.layout.xaxis.type == 'category':
+        ticks = list(dict.fromkeys(x for trace in fig.data for x in trace.x if x is not None))
+        multiple_years = len({str(x)[:4] for x in ticks}) > 1
+        labels = [(str(x) if multiple_years else str(x)[5:]).replace('-', '/') for x in ticks]
+    else:
+        days: dict = {}
+        for trace in fig.data:
+            for x in trace.x:
+                if x is None:
+                    continue
+                value = datetime.fromisoformat(str(x))
+                day = value.date()
+                if day not in days or value < days[day]:
+                    days[day] = value
+        ticks = [days[day] for day in sorted(days)]
+        multiple_years = len({day.year for day in days}) > 1
+        labels = [value.strftime('%Y/%m/%d' if multiple_years else '%m/%d') for value in ticks]
+    fig.update_xaxes(tickmode='array', tickvals=ticks, ticktext=labels, tickangle=-45 if len(ticks) > 7 else 0,
+                     tickfont=dict(size=11), ticklabeloverflow='allow')
+    if len(ticks) > 7:
+        fig.update_layout(height=max(fig.layout.height or 360, 420),
+                          margin=dict(b=140 if fig.layout.showlegend else 100))
+        if fig.layout.showlegend:
+            fig.update_layout(legend=dict(y=-.48))
+    return len(ticks)
+
+
 def style_trend(fig, title=None, height=360):
     """Keep data linear; make touch inspection easy without stealing vertical scrolling."""
     times = [datetime.fromisoformat(str(x)) for trace in fig.data for x in trace.x]
@@ -50,13 +80,14 @@ def style_trend(fig, title=None, height=360):
     )
     fig.update_xaxes(
         title_text='日期／時間（台灣）', title_font=dict(size=12), type='date',
-        nticks=4, tickformat=date_format if daily else '%m/%d<br>%H:%M', hoverformat='%Y/%m/%d %H:%M:%S',
+        tickformat=date_format if daily else '%m/%d<br>%H:%M', hoverformat='%Y/%m/%d %H:%M:%S',
         showgrid=False, zeroline=False, automargin=True,
         rangeslider=dict(visible=False), showspikes=True, spikemode='across',
         spikesnap='cursor', spikecolor='#9aa9bc', spikethickness=1, spikedash='dot',
     )
     fig.update_yaxes(gridcolor='#edf0f4', zeroline=False, nticks=5, automargin=True,
                      title_font=dict(size=12), tickfont=dict(size=12), fixedrange=True)
+    show_measurement_dates(fig)
     return fig
 
 
@@ -72,8 +103,21 @@ def chart_tools(key):
 
 def render_trend(fig, key, tools=False):
     import streamlit as st
+    dates = show_measurement_dates(fig)
     if tools:
         fig.update_layout(dragmode='zoom', height=420)
         fig.update_xaxes(rangeslider=dict(visible=True, thickness=.1))
         fig.update_yaxes(fixedrange=False)
-    st.plotly_chart(fig, key=key, width='stretch', config={**CHART_CONFIG, 'displayModeBar': tools})
+    if dates > 7:
+        # Keep every label at a readable width, without widening the whole mobile page.
+        css_key = re.sub(r'[^a-zA-Z0-9_-]', '-', key) + '-all-dates'
+        st.markdown(f'''<style>
+        .st-key-{css_key}{{width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}}
+        .st-key-{css_key} [data-testid="stElementContainer"]{{width:100%!important;min-width:{dates * 48 + 96}px;max-width:none}}
+        .st-key-{css_key} [data-testid="stPlotlyChart"]{{min-width:{dates * 48 + 96}px}}
+        </style>''', unsafe_allow_html=True)
+        st.caption('可左右滑動圖表，查看所有量測日期。')
+        with st.container(key=css_key):
+            st.plotly_chart(fig, key=key, width='stretch', config={**CHART_CONFIG, 'displayModeBar': tools})
+    else:
+        st.plotly_chart(fig, key=key, width='stretch', config={**CHART_CONFIG, 'displayModeBar': tools})

@@ -50,4 +50,5 @@ def test_dual_axes_keep_units_and_readable_names():
     fig = metric_figures(data, ['HR', 'SDNN'], '雙 Y 軸比較')[0]
     assert fig.data[0].yaxis == 'y' and fig.data[1].yaxis == 'y2'
     assert 'bpm' in fig.layout.yaxis.title.text and 'ms' in fig.layout.yaxis2.title.text
-    assert fig.layout.hovermode == 'x unified' and fig.layout.xaxis.nticks == 4
+    assert fig.layout.hovermode == 'x unified' and fig.layout.xaxis.tickmode == 'array'
+    assert list(fig.layout.xaxis.ticktext) == ['10/18']

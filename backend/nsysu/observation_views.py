@@ -6,7 +6,7 @@ import statistics
 
 import plotly.graph_objects as go
 
-from .chart_style import color_for, label_for, render_trend, style_trend
+from .chart_style import color_for, label_for, render_trend, style_trend, show_measurement_dates
 from .dashboard_summary import measured, series_key, source_label, trend_figure, unit_label, valid_rows
 from .sleep import duration_label, sleep_display_summary
 
@@ -168,10 +168,8 @@ def sleep_duration_bars(sessions):
     style_trend(fig)
     fig.update_traces(x=labels)
     fig.update_layout(hovermode='closest', bargap=.35)
-    ticks = labels[::max(1, (len(labels) + 3) // 4)]
-    multiple_years = len({r['sleep_date'][:4] for r in rows}) > 1
-    fig.update_xaxes(type='category', title_text='睡眠紀錄（同日多筆分開）', tickmode='array',
-                     tickvals=ticks, ticktext=[(label if multiple_years else label[5:]).replace('-', '/') for label in ticks])
+    fig.update_xaxes(type='category', title_text='睡眠紀錄（同日多筆分開）')
+    show_measurement_dates(fig)
     fig.update_yaxes(title_text='睡眠時長（小時）', rangemode='tozero')
     for label, value in zip(labels, values):
         if value is None:

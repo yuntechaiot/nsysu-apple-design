@@ -77,6 +77,22 @@ def test_original_line_remains_available():
     assert fig.data[0].mode == 'lines+markers' and list(fig.data[0].y) == [60, None, 70]
 
 
+def test_every_observed_date_is_labeled_in_range_points_and_lines():
+    records = [row(day=day) for day in range(14, 20)]
+    expected = [f'10/{day}' for day in range(14, 20)]
+    for choice in ['每日範圍', '原始點位', '折線圖']:
+        fig, _ = observation_figure(records, ['HR'], choice)
+        assert fig.layout.xaxis.tickmode == 'array'
+        assert list(fig.layout.xaxis.ticktext) == expected
+
+
+def test_cross_year_date_labels_include_year_and_do_not_drop_missing_value_dates():
+    records = [dict(row(), measured_at='2026-12-31T07:00:00+08:00'),
+               dict(row(None), measured_at='2027-01-01T07:00:00+08:00')]
+    fig, _ = observation_figure(records, ['HR'], '原始點位')
+    assert list(fig.layout.xaxis.ticktext) == ['2026/12/31', '2027/01/01']
+
+
 def session(total, hour=0, day='2026-10-01'):
     return dict(sleep_date=day, start_at=f'{day}T{hour:02d}:00:00+08:00', tst_minutes=total,
                 source='SYNTHETIC', external_session_id=str(hour))
@@ -88,6 +104,7 @@ def test_sleep_bars_preserve_same_day_records_missing_and_zero_without_summing()
     fig = sleep_duration_bars(records)
     assert fig.data[0].type == 'bar' and list(fig.data[0].y) == [7, 1, None, 0]
     assert len(set(fig.data[0].x)) == 4
+    assert len(fig.layout.xaxis.ticktext) == 4
     assert fig.layout.yaxis.rangemode == 'tozero'
     assert [a.text for a in fig.layout.annotations] == ['未提供']
     assert records == original
