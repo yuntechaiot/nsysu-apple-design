@@ -140,12 +140,12 @@ def render_observations(metrics, names, key, presentation='建議呈現', tools=
         return
     fig, description = observation_figure(metrics, names, presentation)
     st.caption(description)
+    render_trend(fig, key=key, tools=tools)
     if recommended_view(metrics, names) == '每日範圍' or presentation == '每日範圍':
         groups = daily_buckets(metrics, names)
         count = sum(len(rows) for days in groups.values() for rows in days.values())
         days = {day for values in groups.values() for day in values}
         st.caption(f'{count} 筆有效量測 · {len(days)} 日有紀錄 · 空白日不補值')
-    render_trend(fig, key=key, tools=tools)
 
 
 def sleep_duration_bars(sessions):

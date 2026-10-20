@@ -33,10 +33,10 @@ bp=[dict(rows[i*4],metric=m,value=value+i%3,unit='mmHg',external_record_id=f'TES
 for i in range(7) for m,value in [('SBP',120),('DBP',78)]]
 sleep=[dict(sleep_date=f'2026-10-{day:02d}',tst_minutes=value,source='SYNTHETIC',external_session_id=f'TEST-{day}')
 for day,value in [(1,420),(2,390),(3,450),(4,None),(5,380),(6,430),(7,400)]]
+choice=presentation_control('demo')
 cols=st.columns(3)
 with cols[0],st.container(border=True):
  st.subheader('每天多次量測')
- choice=presentation_control('demo')
  render_observations(rows,['HR'],'demo-range',choice)
 with cols[1],st.container(border=True):
  st.subheader('同次血壓對照')
