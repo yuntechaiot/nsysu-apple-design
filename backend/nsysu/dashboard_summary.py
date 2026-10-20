@@ -1,6 +1,7 @@
 """Readable, presentation-only summaries of the already authorized measurements."""
 from collections import defaultdict
 from datetime import datetime
+from html import escape
 import math
 
 import pandas as pd
@@ -8,21 +9,10 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from .charts import extrema_sample
+from .chart_style import NAMES, CHART_HELP, color_for, style_trend, chart_tools, render_trend
 from .sleep import TZ, duration_label, sleep_display_summary
 
-NAMES = {
-    'HR': '心率', 'SBP': '收縮壓', 'DBP': '舒張壓', 'SpO2': '血氧', 'Temperature': '體溫',
-    'SDNN': '心率變異 SDNN', 'RMSSD': '心率變異 RMSSD', 'TP': '總功率 TP',
-    'VLF': '極低頻 VLF', 'LF': '低頻 LF', 'HF': '高頻 HF', 'LF/HF': '低頻／高頻 LF/HF',
-    'stress': '壓力指數', 'fatigue': '疲倦指數', 'StressTolerance': '抗壓能力', 'Adaptability': '調適能力',
-    'Steps': '步數', 'Calories': '熱量', 'RRI': '心搏間期 RRI', 'Weight': '體重',
-    'Glucose': '血糖', 'Cholesterol': '膽固醇', 'UricAcid': '尿酸', 'UrineOutput': '排尿量',
-    'WaterIntake': '飲水量', 'HeartIndex': '心臟指數', 'VascularIndex': '血管彈性指數',
-    'ActivitySteps': '活動步數', 'ActivityDistance': '活動距離', 'StaticTime': '靜止時間',
-    'ActiveTime': '活動時間', 'StaticCalories': '靜止熱量', 'ActiveCalories': '活動熱量',
-    'SportSteps': '運動步數', 'SportCalories': '運動熱量', 'SportDuration': '運動時長',
-    'SportMaxHR': '運動最高心率', 'SportAvgHR': '運動平均心率', 'SportDistance': '運動距離',
-}
+
 CATEGORIES = {
     '心率': ['HR'], '血壓': ['SBP', 'DBP'], '血氧': ['SpO2'], '體溫': ['Temperature'],
     'HRV': ['SDNN', 'RMSSD', 'TP', 'VLF', 'LF', 'HF', 'LF/HF'],
@@ -34,7 +24,6 @@ CATEGORIES = {
     '排尿量': ['UrineOutput'], '飲水量': ['WaterIntake'], '心臟與血管': ['HeartIndex', 'VascularIndex'],
     'RRI': ['RRI'],
 }
-COLORS = ['#009eaa', '#e88b55', '#6575cf', '#3d9b78', '#af6aa6']
 
 
 def measured(row):
@@ -93,23 +82,29 @@ def measurement_table(metrics):
 
 def trend_figure(metrics, names):
     groups = defaultdict(list)
-    for row in valid_rows(metrics, names):
+    # Keep explicit missing measurements in the line, even though summaries omit them.
+    for row in sorted((r for r in metrics if r['metric'] in names), key=measured):
         groups[series_key(row)].append(row)
     fig = go.Figure()
     for index, (key, rows) in enumerate(groups.items()):
         name, source, unit, signal, device, version = key
         label = NAMES.get(name, name)
         if sum(k[0] == name for k in groups) > 1:
-            label += f' · {source_label(rows[0])} · {version or "版本未提供"}'
-        points = extrema_sample([(measured(r).replace(tzinfo=None), r['value']) for r in rows])
+            label += f' · 系列 {index + 1}'
+        points = extrema_sample([(measured(r).replace(tzinfo=None),
+                                 float(r['value']) if r.get('value') is not None and math.isfinite(float(r['value'])) else None)
+                                for r in rows])
+        origin = {'PPG': 'PPG-derived PRV', 'ECG': 'ECG-derived HRV'}.get(signal, '訊號來源未確認')
+        details = escape(source_label(rows[0])) + '<br>' + escape(origin) + '<br>版本 ' + escape(str(version or '未提供'))
         fig.add_trace(go.Scatter(x=[p[0] for p in points], y=[p[1] for p in points], mode='lines+markers',
-                                name=label, connectgaps=False, line=dict(color=COLORS[index % len(COLORS)], width=2.5),
-                                marker=dict(size=6), hovertemplate='%{x|%m/%d %H:%M:%S}<br>%{y:,.2f} ' + unit_label(unit) + '<extra>%{fullData.name}</extra>'))
+                                name=label, connectgaps=False,
+                                line=dict(color=color_for(name), width=2.5, shape='linear', dash=['solid', 'dash', 'dot'][index % 3]),
+                                marker=dict(size=5 if len(points) > 60 else 7, color=color_for(name)),
+                                hovertemplate='<b>' + escape(label) + '</b> · %{y:,.3~f} ' + escape(unit_label(unit)) +
+                                '<br>' + details + '<extra></extra>'))
     units = {r.get('unit') for r in metrics if r['metric'] in names}
-    fig.update_layout(height=310, margin=dict(t=20, b=35, l=20, r=15), paper_bgcolor='white', plot_bgcolor='white',
-                      font=dict(color='#29475c'), hovermode='x unified', legend=dict(orientation='h', y=1.16),
-                      xaxis=dict(title='測量時間（台灣）', tickformat='%m/%d\n%H:%M', gridcolor='#eef2f6'),
-                      yaxis=dict(title=unit_label(next(iter(units))) if len(units) == 1 else '各系列原始數值', gridcolor='#eef2f6', rangemode='normal'))
+    style_trend(fig)
+    fig.update_yaxes(title=unit_label(next(iter(units))) if len(units) == 1 else '各系列原始數值', rangemode='normal')
     return fig
 
 
@@ -172,6 +167,8 @@ def overview_view(sessions, metrics, diaries, bundle=None):
         metric_card(metrics, 'fatigue', '壓力與疲倦', 'fatigue')
     st.caption(f'期間內共有 {len(sessions)} 份手錶睡眠紀錄、{len(diaries)} 份睡眠日誌。壓力、疲倦及 HRV 沿用來源數值，不套用未定義的正常範圍。')
     st.subheader('常用量測趨勢')
+    st.caption(CHART_HELP)
+    tools = chart_tools('overview')
     for cols, pairs in [(st.columns(2), [('心率', ['HR']), ('血壓', ['SBP', 'DBP'])]),
                         (st.columns(2), [('血氧', ['SpO2']), ('體溫', ['Temperature'])])]:
         for col, (label, names) in zip(cols, pairs):
@@ -181,8 +178,8 @@ def overview_view(sessions, metrics, diaries, bundle=None):
                 if rows:
                     # Only combine equal units on one axis; uncommon mixed units stay in the category view.
                     chosen = latest_series(rows, names[0]) or latest_series(rows, names[-1])
-                    rows = [r for r in rows if r.get('unit') == chosen[-1].get('unit')]
-                    st.plotly_chart(trend_figure(rows, names), key='overview-' + names[0], width='stretch')
+                    rows = [r for r in metrics if r['metric'] in names and r.get('unit') == chosen[-1].get('unit')]
+                    render_trend(trend_figure(rows, names), key='overview-' + names[0], tools=tools)
                 else:
                     st.info('所選期間無可顯示的量測')
 
@@ -215,13 +212,17 @@ def category_view(metrics):
         st.caption(f"{source_label(latest)} · {unit_label(latest.get('unit'))} · 同來源／裝置／版本 {len(group)} 筆 · 最後量測 {measured(latest):%Y/%m/%d %H:%M}")
     display = st.radio('顯示方式', ['趨勢圖', '量測表'], horizontal=True, key='measurement_display')
     if display == '趨勢圖':
+        st.caption(CHART_HELP)
+        tools = chart_tools('category')
         # Separate units, signals, devices and versions instead of merging incompatible series.
         groups = defaultdict(list)
-        for row in rows:
+        for row in metrics:
+            if row['metric'] not in selected:
+                continue
             groups[(row.get('unit'), row.get('source'), row.get('device_external_id'), row.get('signal_type'), row.get('algorithm_version'))].append(row)
         for index, group in enumerate(groups.values()):
             st.caption(source_label(group[0]) + ' · ' + unit_label(group[0].get('unit')))
-            st.plotly_chart(trend_figure(group, selected), key='category-' + str(index), width='stretch')
+            render_trend(trend_figure(group, selected), key='category-' + str(index), tools=tools)
     else:
         frame = measurement_table(rows)
         page_size = 100

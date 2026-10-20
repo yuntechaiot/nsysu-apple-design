@@ -91,8 +91,11 @@ def _research_sleep_details(selected, diary, physiology=None):
 
 
 def physiology_view(metrics):
+    from .chart_style import CHART_HELP, chart_tools, render_trend
     st.subheader("HRV／生理指標")
     st.caption("ECG：ECG-derived HRV；PPG：PPG-derived PRV。DocterCloud 文件未確認訊號與功率單位，依來源顯示未確認，保留原始數值。")
+    st.caption(CHART_HELP)
+    tools = chart_tools('physiology')
     mode = st.radio("圖表模式", ["獨立圖表", "雙 Y 軸比較", "標準化比較"], horizontal=True)
     names = ["HR", "RMSSD", "SDNN", "TP", "VLF", "LF", "HF", "LF/HF", "stress", "fatigue", "SBP", "DBP", "SpO2", "Temperature"]
     names += sorted({m['metric'] for m in metrics} - set(names))
@@ -104,7 +107,7 @@ def physiology_view(metrics):
     try:
         figures = metric_figures(metrics, selected, mode, method)
         for index, fig in enumerate(figures):
-            st.plotly_chart(fig, use_container_width=True, key=f"physiology-{index}")
+            render_trend(fig, key=f"physiology-{index}", tools=tools)
         if not figures:
             st.info("暫無資料")
     except ValueError as error:
@@ -112,8 +115,11 @@ def physiology_view(metrics):
 
 
 def stress_view(metrics):
+    from .chart_style import CHART_HELP, chart_tools, render_trend
     st.subheader("壓力與疲倦")
     st.caption("第三方平台值供研究分析；原文件未定義高低方向、正常範圍與量尺，因此不作診斷或預設 0–100。")
+    st.caption(CHART_HELP)
+    tools = chart_tools('stress')
     for name, label in (("stress", "Stress Index 壓力指數"), ("fatigue", "Fatigue Index 疲倦指數")):
         groups: dict = {}
         for metric in metrics:
@@ -128,7 +134,7 @@ def stress_view(metrics):
             st.metric(label, f"{newest['value']:g}", delta=f"較前次 {delta:+g}" if delta is not None else None, delta_color="off")
             st.caption(f"來源 {source}｜裝置 {device or '未提供'}｜量尺 {unit or '未確認'}｜量測 {newest['measured_at']}｜版本 {version}")
     for index, fig in enumerate(metric_figures(metrics, ["stress", "fatigue"])):
-        st.plotly_chart(fig, key=f"stress-fatigue-{index}")
+        render_trend(fig, key=f"stress-fatigue-{index}", tools=tools)
 
 
 def main():

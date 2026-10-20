@@ -2,11 +2,13 @@
 import math
 import statistics
 from collections import defaultdict
+from html import escape
 
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from .sleep import TZ
+from .chart_style import color_for, label_for, style_trend
 from datetime import datetime
 
 
@@ -40,37 +42,52 @@ def metric_figures(records, selected, mode="獨立圖表", method="Z-score"):
     groups = defaultdict(list)
     for record in records:
         if record["metric"] in selected:
-            key = (record["metric"], record.get("source", "DocterCloud"), record.get("unit") or "單位未確認", record.get("signal_type", "unknown"), record.get("device_external_id"))
+            key = (record["metric"], record.get("source", "DocterCloud"), record.get("unit") or "單位未確認", record.get("signal_type", "unknown"), record.get("device_external_id"), record.get('algorithm_version'))
             value = record.get("value")
-            groups[key].append((record["measured_at"], value if value is not None and math.isfinite(float(value)) else None))
+            groups[key].append((record["measured_at"], float(value) if value is not None and math.isfinite(float(value)) else None))
     figures: list = []
     if not groups:
         return figures
     keys = list(groups)
     if mode == "雙 Y 軸比較" and len(keys) != 2:
-        raise ValueError("雙 Y 軸請選取兩個具有相同來源、裝置與單位的指標系列")
+        raise ValueError("雙 Y 軸需要恰好兩個資料系列；請縮小來源、裝置或版本範圍。左右軸各保留原單位。")
     combined = make_subplots(specs=[[{"secondary_y": True}]]) if mode == "雙 Y 軸比較" else go.Figure()
     for index, key in enumerate(keys):
-        name, source, unit, signal, device = key
-        label = f"{name} ({unit}) · {source} · {device or '裝置未提供'}"
-        points = sorted(groups[key], key=lambda p: p[0])
+        name, source, unit, signal, device, version = key
+        label = label_for(name)
+        if sum(k[0] == name for k in keys) > 1:
+            label += f' · 系列 {index + 1}'
+        def local_time(value):
+            parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return (parsed.replace(tzinfo=TZ) if parsed.tzinfo is None else parsed.astimezone(TZ)).replace(tzinfo=None)
+        points = sorted(groups[key], key=lambda p: local_time(p[0]))
+        originals = points
+        values = [p[1] for p in originals]
         if mode == "標準化比較":
-            values = normalize([p[1] for p in points], method)
-            points = [(p[0], v) for p, v in zip(points, values)]
-        points = extrema_sample(points)
+            values = normalize(values, method)
+        # Sample indexes so same-time observations retain their own original value.
+        points = extrema_sample(list(enumerate(values)))
         # Plot naive Taipei wall time so browser timezone cannot reinterpret dates.
-        x = [datetime.fromisoformat(p[0]).astimezone(TZ).replace(tzinfo=None) for p in points]
+        x = [local_time(originals[p[0]][0]) for p in points]
         y = [p[1] for p in points]
         origin = {"PPG": "PPG-derived PRV", "ECG": "ECG-derived HRV"}.get(signal, "訊號來源未確認")
+        details = '<br>'.join(escape(str(v)) for v in (source or '來源未提供', device or '裝置未提供', origin, '版本 ' + str(version or '未提供')))
         trace = go.Scatter(x=x, y=y, name=label, mode="lines+markers", connectgaps=False,
-                           hovertemplate=f"%{{x|%m/%d %H:%M}}<br>{label}<br>{origin}<br>%{{y:.3f}}<extra></extra>")
+                           line=dict(color=color_for(name), width=2.5, shape='linear', dash=['solid', 'dash', 'dot'][index % 3]),
+                           marker=dict(size=5 if len(points) > 60 else 7),
+                           customdata=[[originals[p[0]][1]] for p in points],
+                           hovertemplate='<b>' + escape(label) + '</b> · %{y:,.3~f} ' +
+                           (escape(method) + '<br>原始值 %{customdata[0]} ' if mode == '標準化比較' else '') +
+                           escape(unit) + '<br>' + details + '<extra></extra>')
         if mode == "獨立圖表":
             fig = go.Figure(trace)
-            fig.update_yaxes(title=label, autorange=True, rangemode="normal")
+            style_trend(fig, title=label)
+            fig.update_yaxes(title=unit, autorange=True, rangemode="normal")
             figures.append(fig)
         elif mode == "雙 Y 軸比較":
             combined.add_trace(trace, secondary_y=bool(index))
-            combined.update_yaxes(title_text=label, secondary_y=bool(index), autorange=True)
+            combined.update_yaxes(title_text=label + ' (' + unit + ')', secondary_y=bool(index), autorange=True,
+                                  color=color_for(name))
         else:
             combined.add_trace(trace)
     if mode != "獨立圖表":
@@ -78,6 +95,6 @@ def metric_figures(records, selected, mode="獨立圖表", method="Z-score"):
             combined.update_yaxes(title=method + "（僅視覺化）")
         figures.append(combined)
     for fig in figures:
-        fig.update_layout(height=330, margin=dict(t=40, b=35), hovermode="x unified",
-                          xaxis=dict(title="台灣時間（Asia/Taipei）", tickformat="%m/%d %H:%M", rangeslider=dict(visible=True)))
+        if mode != '獨立圖表':
+            style_trend(fig)
     return figures

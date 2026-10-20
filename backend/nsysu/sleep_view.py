@@ -8,6 +8,7 @@ import streamlit as st
 
 from .dashboard_summary import latest_series, measured, source_label
 from .sleep import TZ, duration_label, number, sleep_display_summary
+from .chart_style import CHART_HELP, COLORS, style_trend, chart_tools, render_trend
 
 STAGES = {'deep': ('深睡', '#549688'), 'light': ('淺睡', '#4db2a2'),
           'rem': ('REM 快速動眼期', '#97cacb'), 'awake': ('清醒', '#b6bec8')}
@@ -117,10 +118,12 @@ def period_trend(sessions):
         fig.add_trace(go.Scatter(x=[s['sleep_date'] for s in rows],
                                 y=[sleep_display_summary(s)['total_minutes'] for s in rows],
                                 mode='lines+markers', name=source_label(rows[0]) + (f' · 系列 {index+1}' if len(groups) > 1 else ''),
-                                connectgaps=False, line=dict(color='#009eaa'),
+                                connectgaps=False, line=dict(color=COLORS[index % len(COLORS)], width=2.5, shape='linear'),
+                                marker=dict(size=7),
                                 hovertemplate='%{x}<br>睡眠總時長 %{y:g} 分鐘<extra></extra>'))
-    fig.update_layout(height=250, margin=dict(t=20, b=35, l=10, r=10),
-                      xaxis_title='睡眠日期', yaxis_title='睡眠總時長（分鐘）', paper_bgcolor='white', plot_bgcolor='white')
+    style_trend(fig)
+    fig.update_xaxes(title_text='睡眠日期', tickformat='%m/%d', hoverformat='%Y/%m/%d')
+    fig.update_yaxes(title_text='睡眠總時長（分鐘）')
     return fig
 
 
@@ -173,7 +176,9 @@ def sleep_view(sessions, diaries, physiology, research_details):
         sleep_vitals(selected, physiology)
         if len(sessions) > 1:
             with st.expander('查詢期間的睡眠趨勢'):
-                st.plotly_chart(period_trend(sessions), key='sleep-period-trend', width='stretch')
+                st.caption(CHART_HELP)
+                tools = chart_tools('sleep-period')
+                render_trend(period_trend(sessions), key='sleep-period-trend', tools=tools)
     with st.expander('進階研究指標：WASO、SOL、睡眠效率與日誌對照'):
         st.caption('平台清醒時間是整段紀錄的 awake；WASO 僅計首次入睡至最後醒來之間的清醒，需要足夠的分期資訊確認。')
         matching = [r for r in diaries if r.get('date_definition') == 'wake_date' and r['date'] == selected['sleep_date']]
