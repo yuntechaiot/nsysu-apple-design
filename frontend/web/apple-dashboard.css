@@ -8,7 +8,7 @@ section[data-testid='stSidebar']{background:#eef0f4!important;border-right:0!imp
 [data-testid='stSidebarContent']{padding-top:1rem}
 [data-testid='stForm'],div[data-testid='stVerticalBlockBorderWrapper']{border:1px solid #e1e5eb!important;background:#fff!important;border-radius:22px!important;padding:1.5rem!important;box-shadow:0 4px 20px #172e4907}
 [data-testid='stVerticalBlock']{gap:1.25rem}
-[data-testid='stCaptionContainer']{color:#626772;line-height:1.8}
+[data-testid='stCaptionContainer'],[data-testid='stCaptionContainer'] p{color:#626772!important;line-height:1.8;opacity:1}
 [data-testid='stTextInput'] input,[data-testid='stNumberInput'] input,[data-baseweb='select']>div{min-height:50px;font-size:1rem!important;border-radius:12px}
 [data-testid='stButton'] button,[data-testid='stFormSubmitButton'] button,[data-testid='stLinkButton'] a,[data-testid='stDownloadButton'] button{min-height:48px;border-radius:13px!important;font-weight:600;touch-action:manipulation;transition:background-color 120ms ease}
 button[data-testid='stBaseButton-primary'],button[data-testid='stBaseButton-primaryFormSubmit']{background:#0071e3!important;border-color:#0071e3!important;color:white!important}
