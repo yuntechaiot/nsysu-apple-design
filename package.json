@@ -1,0 +1,20 @@
+{
+  "name": "nsysu-sleep-research",
+  "version": "2.0.0",
+  "description": "NSYSU 睡眠日誌與 HRV 研究平台",
+  "scripts": {
+    "build": "node tools/build_web.mjs",
+    "lint": "node tools/check_frontend.mjs",
+    "test": "node --test tests/web_platform/*.test.cjs",
+    "test:db": "node tools/pg_integration.mjs",
+    "typecheck": "python -m mypy backend/nsysu --ignore-missing-imports --check-untyped-defs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.10",
+    "supabase": "2.121.0"
+  },
+  "private": true
+}

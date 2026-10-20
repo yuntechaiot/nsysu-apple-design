@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:research-projects:hrv-session:1.0.0",
+  "title": "HRV／PRV 研究資料交換契約",
+  "description": "PPG 必須標 PRV；缺少有效時間或品質時指標留 null，不能以合成資料代替量測。",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "device": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signal_source": {
+      "enum": [
+        "PPG",
+        "ECG"
+      ]
+    },
+    "metric_type": {
+      "enum": [
+        "PRV",
+        "HRV"
+      ]
+    },
+    "duration_s": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sampling_rate_hz": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0
+    },
+    "analysis_window": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "start_s",
+            "end_s"
+          ],
+          "properties": {
+            "start_s": {
+              "type": "number"
+            },
+            "end_s": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "algorithm_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "software_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "quality_status": {
+      "enum": [
+        "VALID",
+        "UNMEASURED",
+        "UNVERIFIED_TIMING",
+        "INSUFFICIENT_DATA",
+        "EXPLORATORY_ENCODING",
+        "SYNTHETIC_ONLY",
+        "SYNTHETIC_INSUFFICIENT_DATA"
+      ]
+    },
+    "measurement_units": {
+      "const": {
+        "mean_ppi_ms": "ms",
+        "sdnn_ms": "ms",
+        "rmssd_ms": "ms",
+        "sdsd_ms": "ms",
+        "pnn50_pct": "%",
+        "tp_ms2": "ms²",
+        "vlf_ms2": "ms²",
+        "lf_ms2": "ms²",
+        "hf_ms2": "ms²",
+        "lf_hf_ratio": "unitless",
+        "lfnu_pct": "%",
+        "hfnu_pct": "%"
+      }
+    },
+    "signal_quality": {
+      "type": "object"
+    },
+    "data_provenance": {
+      "type": "object",
+      "required": [
+        "source_kind",
+        "source_sha256",
+        "is_device_validation"
+      ],
+      "properties": {
+        "source_kind": {
+          "type": "string"
+        },
+        "source_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "is_device_validation": {
+          "type": "boolean"
+        }
+      }
+    },
+    "calculated_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "mean_ppi_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sdnn_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "rmssd_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sdsd_ms": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "pnn50_pct": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "tp_ms2": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "vlf_ms2": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "lf_ms2": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "hf_ms2": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "lf_hf_ratio": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "lfnu_pct": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "hfnu_pct": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "required": [
+    "schema_version",
+    "session_id",
+    "device",
+    "signal_source",
+    "metric_type",
+    "duration_s",
+    "sampling_rate_hz",
+    "analysis_window",
+    "algorithm_version",
+    "software_versions",
+    "quality_status",
+    "measurement_units",
+    "signal_quality",
+    "data_provenance",
+    "calculated_at",
+    "mean_ppi_ms",
+    "sdnn_ms",
+    "rmssd_ms",
+    "sdsd_ms",
+    "pnn50_pct",
+    "tp_ms2",
+    "vlf_ms2",
+    "lf_ms2",
+    "hf_ms2",
+    "lf_hf_ratio",
+    "lfnu_pct",
+    "hfnu_pct"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "signal_source": {
+            "const": "PPG"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metric_type": {
+            "const": "PRV"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "quality_status": {
+            "enum": [
+              "UNMEASURED",
+              "UNVERIFIED_TIMING",
+              "INSUFFICIENT_DATA",
+              "SYNTHETIC_INSUFFICIENT_DATA"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "mean_ppi_ms": {
+            "type": "null"
+          },
+          "sdnn_ms": {
+            "type": "null"
+          },
+          "rmssd_ms": {
+            "type": "null"
+          },
+          "sdsd_ms": {
+            "type": "null"
+          },
+          "pnn50_pct": {
+            "type": "null"
+          },
+          "tp_ms2": {
+            "type": "null"
+          },
+          "vlf_ms2": {
+            "type": "null"
+          },
+          "lf_ms2": {
+            "type": "null"
+          },
+          "hf_ms2": {
+            "type": "null"
+          },
+          "lf_hf_ratio": {
+            "type": "null"
+          },
+          "lfnu_pct": {
+            "type": "null"
+          },
+          "hfnu_pct": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "quality_status": {
+            "enum": [
+              "SYNTHETIC_ONLY",
+              "SYNTHETIC_INSUFFICIENT_DATA"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data_provenance": {
+            "properties": {
+              "source_kind": {
+                "const": "synthetic"
+              },
+              "is_device_validation": {
+                "const": false
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

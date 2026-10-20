@@ -1,0 +1,32 @@
+/* Native Streamlit keeps all widgets and keyboard behavior. */
+.stApp{background:#f5f5f7!important;color:#1d1d1f;font-family:-apple-system,BlinkMacSystemFont,'PingFang TC',system-ui,sans-serif}
+.block-container{max-width:1200px!important;padding:3.5rem 2rem 4rem!important}
+h1,h2,h3{color:#1d1d1f!important;letter-spacing:-.035em!important;line-height:1.35!important}
+h1{font-size:clamp(1.8rem,4vw,2.65rem)!important}h2{font-size:1.65rem!important}h3{font-size:1.25rem!important}
+[data-testid='stHeader']{background:rgba(245,245,247,.9);backdrop-filter:blur(24px)}
+section[data-testid='stSidebar']{background:#eef0f4!important;border-right:0!important}
+[data-testid='stSidebarContent']{padding-top:1rem}
+[data-testid='stForm'],div[data-testid='stVerticalBlockBorderWrapper']{border:1px solid #e1e5eb!important;background:#fff!important;border-radius:22px!important;padding:1.5rem!important;box-shadow:0 4px 20px #172e4907}
+[data-testid='stVerticalBlock']{gap:1.25rem}
+[data-testid='stCaptionContainer']{color:#626772;line-height:1.8}
+[data-testid='stTextInput'] input,[data-testid='stNumberInput'] input,[data-baseweb='select']>div{min-height:50px;font-size:1rem!important;border-radius:12px}
+[data-testid='stButton'] button,[data-testid='stFormSubmitButton'] button,[data-testid='stLinkButton'] a,[data-testid='stDownloadButton'] button{min-height:48px;border-radius:13px!important;font-weight:600;touch-action:manipulation;transition:background-color 120ms ease}
+button[data-testid='stBaseButton-primary'],button[data-testid='stBaseButton-primaryFormSubmit']{background:#0071e3!important;border-color:#0071e3!important;color:white!important}
+[data-testid='stButton'] button:active,[data-testid='stFormSubmitButton'] button:active{filter:brightness(.93)}
+[data-testid='stButton'] button:focus-visible,[data-testid='stLinkButton'] a:focus-visible{outline:3px solid #0071e3;outline-offset:3px}
+div[data-testid='stMetric']{padding:.5rem 0!important}div[data-testid='stMetricValue']{font-size:1.8rem!important;color:#1d1d1f!important;font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+div[data-testid='stMetricLabel']{color:#626772!important}
+div[class*='st-key-summary-']{border-top:0!important;min-height:0!important;border-radius:22px!important}
+.st-key-sleep-platform-summary{border-radius:22px!important}
+[data-baseweb='tab-list']{gap:.5rem;overflow-x:auto;padding:.4rem;border-radius:14px;background:#e9ecf1}
+button[role='tab']{min-height:44px;padding:.6rem 1rem;border-radius:10px;white-space:nowrap;touch-action:manipulation}
+button[role='tab'][aria-selected='true']{color:#005ab5!important;background:#fff;box-shadow:0 2px 8px #172e4910}
+[data-baseweb='tab-highlight'],[data-baseweb='tab-border']{display:none}
+[data-testid='stExpander']{background:#fff;border-radius:16px;overflow:hidden}
+[data-testid='stExpander'] summary{min-height:50px;align-items:center}
+[data-testid='stAlert']{border-radius:14px;line-height:1.8}
+[data-testid='stPlotlyChart']{border-radius:18px;overflow:hidden}
+@media(max-width:700px){.block-container{padding:3.5rem 1.25rem 3rem!important}[data-testid='stHorizontalBlock']{flex-direction:column;gap:1rem}[data-testid='stHorizontalBlock']>[data-testid='stColumn']{width:100%!important;flex:1 1 100%!important;min-width:0!important}[data-testid='stForm'],div[data-testid='stVerticalBlockBorderWrapper']{padding:1.25rem!important;border-radius:18px!important}h1{font-size:1.8rem!important}[data-testid='stButton'] button,[data-testid='stFormSubmitButton'] button,[data-testid='stLinkButton'] a{max-width:100%}button[role='tab']{font-size:.85rem;padding:.6rem .8rem}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media(prefers-reduced-transparency:reduce){[data-testid='stHeader']{background:#f5f5f7;backdrop-filter:none}}
+@media(prefers-contrast:more){[data-testid='stForm'],div[data-testid='stVerticalBlockBorderWrapper']{border-color:#737e8c!important}[data-testid='stCaptionContainer']{color:#41454e}}

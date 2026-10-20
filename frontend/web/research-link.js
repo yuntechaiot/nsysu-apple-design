@@ -1,0 +1,1 @@
+fetch('/api/config').then(r=>{if(!r.ok)throw Error('unavailable');return r.json();}).then(c=>{if(c.dashboard_url){document.getElementById('dashboard').href=c.dashboard_url;location.replace(c.dashboard_url);}}).catch(()=>{document.getElementById('connection-status').textContent='暫時無法自動開啟，請確認研究服務已啟動，再使用下方連結。';});
