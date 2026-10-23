@@ -192,6 +192,7 @@ def main():
                         filters.click()
                         overview = page.get_by_role('tabpanel', name='健康總覽', exact=True)
                         metrics = overview.locator('[data-testid=stMetric]')
+                        expect(metrics).to_have_count(8, timeout=30000)
                         metric_rows = metrics.evaluate_all('es=>es.slice(0,4).map(e=>e.getBoundingClientRect().y)')
                         if width < 768:
                             assert all(a<b for a,b in zip(metric_rows,metric_rows[1:])), metric_rows
@@ -257,6 +258,14 @@ def main():
                         no_overflow(page)
                         if width < 768:
                             assert iframe.bounding_box()['height'] <= 900-55+1, iframe.bounding_box()
+                            frame_box = iframe.bounding_box()
+                            header_box = page.get_by_test_id('stHeader').bounding_box()
+                            assert frame_box['y'] >= header_box['y']+header_box['height'], 'Toolbar covers diary'
+                            container = page.get_by_test_id('stMainBlockContainer').bounding_box()
+                            assert container['height'] <= 901, iframe.evaluate('''e=>{
+                              const rows=[];for(let p=e;p&&rows.length<5;p=p.parentElement){const s=getComputedStyle(p);rows.push({
+                               testid:p.dataset.testid,height:p.getBoundingClientRect().height,minHeight:s.minHeight,gap:s.gap,padding:s.padding,style:p.getAttribute('style')});}return rows;
+                            }''')
                         report['checks'].append(f'{engine} {width}: home, menu, dialog, diary, ratings, dashboard, sidebar, all dates, nine parameters, table scroll, embedded diary')
                         print(f'PASS {engine} {width}px', flush=True)
                         context.close()

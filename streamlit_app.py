@@ -1,4 +1,4 @@
-"""GitHub／Streamlit Community Cloud 共用入口；手機版 UI 發布 2026-10-23。"""
+"""GitHub／Streamlit Community Cloud 共用入口；手機版 UI 與可視高度更新 2026-10-23。"""
 from pathlib import Path
 import sys
 

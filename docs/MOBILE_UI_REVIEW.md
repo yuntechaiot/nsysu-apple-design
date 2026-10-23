@@ -22,6 +22,7 @@
 - backend/nsysu/chart_style.py:111 — 圖表保留所有量測日期；窄畫面增加日期間距與字級，只在圖表內橫向捲動，1280px 以上維持原日期尺寸。
 - frontend/web/responsive.css:38 — HTML 匯出表格限定區域捲動；Streamlit DataFrame 保留原生虛擬表格與水平捲動，不把整頁撐寬。
 - frontend/web/app.css:3、frontend/web/apple.css:8 — hover 樣式限制在可 hover 的精準輸入裝置；保留 touch 的按壓回饋。
+- backend/nsysu/cloud.py:80 — 手機 iframe 與其容器一併依 dvh 扣除工具列高度，清除空樣式區塊的間距，避免額外的外層捲動與頂部工具列遮擋日誌。
 
 導覽、表格與圖表使用原生捲動；沒有 touchmove preventDefault、全面禁止文字選取或停用縮放。一般頁面保留手機原生捲動，僅 modal、Sidebar、下拉與水平捲動區域阻止不合適的捲動串接。
 

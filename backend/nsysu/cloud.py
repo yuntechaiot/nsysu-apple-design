@@ -78,8 +78,10 @@ def main():
     [data-testid="stIFrame"]{border:0;display:block}
     @media(max-width:767px){
       [data-testid="stHeader"]{min-height:calc(3.5rem + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px)}
-      .block-container{padding:calc(3.5rem + env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);min-width:0}
-      [data-testid="stIFrame"]{width:100%;height:calc(100dvh - 3.5rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+      .block-container{padding:calc(4rem + env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)!important;min-width:0}
+      [data-testid="stMainBlockContainer"]>[data-testid="stVerticalBlock"]{gap:0}
+      [data-testid="stElementContainer"]:has(>[data-testid="stIFrame"]){height:calc(100dvh - 4rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))!important;min-height:0!important;flex:0 0 auto!important}
+      [data-testid="stIFrame"]{width:100%;height:calc(100dvh - 4rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
     }
     </style>''', unsafe_allow_html=True)
     # iframe 只包含本專案固定 HTML，不嵌入使用者 HTML。
