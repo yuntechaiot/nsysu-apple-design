@@ -80,9 +80,11 @@ def load_platform_bundle(token, profile, start, end):
     lower = int(datetime.combine(start, time.min, TZ).timestamp())
     upper = int(datetime.combine(end + timedelta(days=1), time.min, TZ).timestamp())
     raw, statuses = {}, {}
+    context_raw, context, context_status = [], [], 'success'
 
     def read(kind):
-        return api.fetch_range(kind, profile['id'], lower - (86400 if kind == 'sleep' else 0), upper)
+        lookback = 2 * 86400 if kind == 'hrv' else 86400 if kind == 'sleep' else 0
+        return api.fetch_range(kind, profile['id'], lower - lookback, upper)
 
     with ThreadPoolExecutor(max_workers=3) as pool:
         tasks = {pool.submit(read, kind): kind for kind in KINDS}
@@ -90,8 +92,23 @@ def load_platform_bundle(token, profile, start, end):
             kind = tasks[task]
             try:
                 raw[kind] = task.result()
+                if kind == 'hrv':
+                    main = []
+                    for row in raw[kind]:
+                        try:
+                            when = timestamp(row.get('occur_time', row.get('start_time')), True)
+                        except (ValueError, TypeError, OverflowError):
+                            when = None  # Retain malformed rows for the existing raw export and parse issue.
+                            context_status = 'partial'
+                        if when and datetime.fromisoformat(when).timestamp() < lower:
+                            context_raw.append(row)
+                        else:
+                            main.append(row)
+                    raw[kind] = main
                 statuses[kind] = {'state': 'success', 'count': len(raw[kind]), 'message': ''}
             except Exception as error:
+                if kind == 'hrv':
+                    context_status = 'partial'
                 message = str(error) if isinstance(error, PlatformError) else '平台連線未完成，請重試'
                 statuses[kind] = {'state': 'error', 'count': None, 'message': message}
     sessions, metrics, issues = [], [], []
@@ -110,7 +127,16 @@ def load_platform_bundle(token, profile, start, end):
                                                 source_type=row.get('type', row.get('typr'))))
             except (ValueError, TypeError, KeyError, OverflowError):
                 issues.append({'kind': kind, 'record_id': str(row.get('id', 'unknown'))})
+    for row in context_raw:
+        try:
+            for record in normalize_metrics('hrv', row):
+                if record['metric'] in ('stress', 'fatigue'):
+                    context.append(dict(record, source='doctercloud', platform_kind='hrv',
+                                        source_type=row.get('type', row.get('typr'))))
+        except (ValueError, TypeError, KeyError, OverflowError):
+            context_status = 'partial'
     return {'raw': raw, 'statuses': statuses, 'sessions': sessions, 'metrics': metrics,
+            'pre_sleep_context': context, 'pre_sleep_context_status': context_status,
             'profile': profile, 'parse_issues': issues, 'loaded_at': datetime.now(TZ).isoformat()}
 
 

@@ -127,7 +127,7 @@ def test_query_is_explicit_and_changed_dates_do_not_show_stale_data(monkeypatch)
     app.run()
     assert 'sleep_logs' not in requested
     next(x for x in app.button if x.label == '查看資料').click().run()
-    assert 'sleep_logs' in requested and len(app.tabs) == 7
+    assert 'sleep_logs' in requested and len(app.tabs) == 8
     next(x for x in app.radio if x.label == '日期範圍').set_value('近 30 天').run()
     assert len(app.tabs) == 0
     assert any('選項已變更' in x.value for x in app.info)
@@ -172,7 +172,8 @@ def test_streamlit_authorized_data_and_all_three_chart_modes(monkeypatch):
     assert len(app.exception) == 0
     assert not app.tabs
     next(x for x in app.button if x.label == '查看資料').click().run()
-    assert len(app.tabs) == 7
+    assert len(app.tabs) == 8
+    assert app.tabs[3].label == '睡眠參數'
     assert any(m.label == '入睡所需時間（客觀 SOL）' and m.value == '15 分鐘' for m in app.metric)
     assert any(m.label == 'Fatigue Index 疲倦指數' and m.value == '0' for m in app.metric)
     next(x for x in app.selectbox if x.label == '睡眠區段生理對照').set_value('3. rem 05:00–06:30').run()

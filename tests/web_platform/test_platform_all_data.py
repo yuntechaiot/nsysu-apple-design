@@ -175,7 +175,7 @@ def test_diary_login_also_connects_platform_and_loads_all_kinds_only_when_reques
     assert calls == [('login', 'RESEARCH_TEST')]
     assert 'platform_token' in app.session_state and not app.exception
     next(b for b in app.button if b.label == '查看資料').click().run()
-    assert len(app.tabs) == 7 and not app.exception
+    assert len(app.tabs) == 8 and not app.exception
     assert {kind for action, kind in calls if action == 'fetch'} == set(KINDS)
     assert any('原始筆數' in frame.value.columns for frame in app.dataframe)
 

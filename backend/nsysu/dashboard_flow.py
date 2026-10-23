@@ -4,6 +4,7 @@ import re
 from urllib.parse import urlencode
 
 import pandas as pd
+import requests
 import streamlit as st
 
 from .dashboard import objective_view, physiology_view, stress_view, filter_diaries, BOOLS
@@ -13,6 +14,7 @@ from .platform import Platform
 from .platform_data import combine_participants, load_platform_bundle, merge_records, diary_member
 from .platform_view import all_platform_view
 from .sleep import TZ, sleep_metrics
+from .sleep_parameters_view import sleep_parameters_view
 from .store import Store, StoreError, login
 from .config import setting
 
@@ -163,8 +165,21 @@ def load_records(mode, target, start_date, end_date, store):
             research_access = bool(store.rows("participant_access", member_id="eq." + member))
             if research_access:
                 diaries = store.rows("sleep_logs", member_id="eq." + member, date="gte." + str(start_date), **{"and": f"(date.lte.{end_date})"})
+    context = (bundle or {}).get('pre_sleep_context', [])
+    context_status = (bundle or {}).get('pre_sleep_context_status', 'success')
+    if research_access:
+        try:
+            previous = store.rows('physiological_metrics', member_id='eq.' + member, metric='in.(stress,fatigue)',
+                                  measured_at='gte.' + datetime.combine(start_date - timedelta(days=2), time.min, TZ).isoformat(),
+                                  **{'and': '(measured_at.lt.' + datetime.combine(start_date, time.min, TZ).isoformat() + ')'})
+            context = merge_records(previous, context, metric=True)
+        except (StoreError, requests.RequestException) as error:
+            if isinstance(error, StoreError) and error.status in (401, 403):
+                raise
+            context_status = 'partial'
     return {"mode": mode, "member": member, "label": member_label(target), "start": str(start_date), "end": str(end_date),
             "diaries": diaries, "sessions": sessions, "metrics": metrics, "imports": imports, "platform_bundle": bundle,
+            "pre_sleep_context": context, "pre_sleep_context_status": context_status,
             "loaded_at": datetime.now(TZ).isoformat(), "analysis_loaded": True, "research_access": research_access}
 
 
@@ -392,14 +407,16 @@ def main(configure_page=True):
         data_manager(data, store)
         return
     sessions, metrics, diaries = data["sessions"], data["metrics"], data["diaries"]
+    pre_context = data.get('pre_sleep_context', [])
     with st.expander("進階篩選：來源與裝置"):
-        sources = sorted({s["source"] for s in sessions} | {m.get("source", "unknown") for m in metrics})
+        sources = sorted({s["source"] for s in sessions} | {m.get("source", "unknown") for m in metrics + pre_context})
         selected_sources = st.multiselect("裝置／平台來源", sources, default=sources)
-        devices = sorted({s.get("device_external_id") or "未提供" for s in sessions} | {m.get("device_external_id") or "未提供" for m in metrics})
+        devices = sorted({s.get("device_external_id") or "未提供" for s in sessions} | {m.get("device_external_id") or "未提供" for m in metrics + pre_context})
         selected_devices = st.multiselect("裝置識別", devices, default=devices)
     sessions = [s for s in sessions if s["source"] in selected_sources and (s.get("device_external_id") or "未提供") in selected_devices]
     metrics = [m for m in metrics if m.get("source", "unknown") in selected_sources and (m.get("device_external_id") or "未提供") in selected_devices]
-    labels = ["健康總覽", "生理數據", "睡眠分析", "睡眠日誌", "壓力與疲倦", "研究比較", "原始資料／下載"]
+    pre_context = [m for m in pre_context if m.get('source', 'unknown') in selected_sources and (m.get('device_external_id') or '未提供') in selected_devices]
+    labels = ["健康總覽", "生理數據", "睡眠分析", "睡眠參數", "睡眠日誌", "壓力與疲倦", "研究比較", "原始資料／下載"]
     tabs = st.tabs(labels, default=labels[0], key='dashboard_tabs', on_change='rerun')
     with tabs[0]:
         overview_view(sessions, metrics, diaries, data.get('platform_bundle'))
@@ -408,14 +425,16 @@ def main(configure_page=True):
     with tabs[2]:
         objective_view(sessions, diaries, metrics)
     with tabs[3]:
-        diary_view(diaries, member, data.get("research_access", False))
+        sleep_parameters_view(sessions, diaries, metrics + pre_context, data.get('pre_sleep_context_status', 'not_loaded'))
     with tabs[4]:
-        stress_view(metrics)
+        diary_view(diaries, member, data.get("research_access", False))
     with tabs[5]:
+        stress_view(metrics)
+    with tabs[6]:
         comparison_view(diaries, sessions)
         with st.expander('進階指標比較：雙軸／標準化'):
             physiology_view(metrics)
-    with tabs[6]:
+    with tabs[7]:
         all_platform_view(data.get('platform_bundle'), st.session_state.get('platform_connection_error'))
         with st.expander("查看睡眠來源與品質詳情"):
             st.dataframe(pd.DataFrame([{k: s.get(k) for k in ("sleep_date", "source", "device_external_id", "algorithm_version", "quality_status")} for s in sessions]), hide_index=True)
