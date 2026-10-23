@@ -71,6 +71,8 @@ def diary_times(log):
 
 
 def watch_onset(session, allow_observed=False):
+    if not session:
+        return None, '缺少對應日期的手錶睡眠紀錄'
     lower, upper = instant(session.get('start_at')), instant(session.get('end_at'))
     supplied = instant(session.get('sleep_onset_at'))
     if session.get('sleep_onset_at'):
@@ -119,7 +121,7 @@ def calculate_parameters(log=None, session=None, metrics=None, window_minutes=60
     log, session = log or {}, session or {}
     values: dict[str, float | None] = {key: None for key, *_ in PARAMETERS}
     reasons = {key: '缺少對應資料' for key in values}
-    times, diary_issue = diary_times(log)
+    times, diary_issue = diary_times(log) if log else ({'bed': None, 'wake': None, 'out': None}, '缺少對應日期的睡眠日誌')
     onset, onset_basis = watch_onset(session, allow_observed)
     notes = [diary_issue] if log and diary_issue else []
     pairing_issue = ''

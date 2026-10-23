@@ -89,6 +89,8 @@ def test_true_zeros_missing_values_and_impossible_awake_summary():
     assert result['values']['awakening_count'] == result['values']['waso_minutes'] == result['values']['sol_minutes'] == 0
     assert result['values']['se_percent'] == 100
     assert calculate_parameters()['values'] == dict.fromkeys(result['values'])
+    assert calculate_parameters(log)['reasons']['sol_minutes'] == '缺少對應日期的手錶睡眠紀錄'
+    assert calculate_parameters(None, session)['reasons']['tst_minutes'] == '缺少對應日期的睡眠日誌'
     assert calculate_parameters(log, dict(session, awake_minutes=9999))['values']['waso_minutes'] is None
     assert calculate_parameters(dict(log, wakeup_count=1.5), session)['values']['awakening_count'] is None
 

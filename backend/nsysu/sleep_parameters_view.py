@@ -80,7 +80,11 @@ def parameter_figure(results, key, label, unit):
 def single_view(diaries, sessions, metrics, window, allow_observed):
     dates = sorted({str(r.get('date')) for r in diaries if r.get('date')} |
                    {str(r.get('sleep_date')) for r in sessions if r.get('sleep_date')}, reverse=True)
-    day = st.selectbox('睡眠參數日期', dates, key='sleep-parameters-date')
+    log_dates = {str(r.get('date')) for r in diaries}
+    watch_dates = {str(r.get('sleep_date')) for r in sessions}
+    day = st.selectbox('睡眠參數日期', dates, key='sleep-parameters-date',
+                       format_func=lambda value: value + ' · ' + ('日誌＋手錶' if value in log_dates and value in watch_dates else
+                                                                  '僅日誌' if value in log_dates else '僅手錶'))
     logs = [r for r in diaries if str(r.get('date')) == day]
     watches = [r for r in sessions if str(r.get('sleep_date')) == day]
     log = logs[0] if len(logs) == 1 else None
@@ -99,7 +103,9 @@ def single_view(diaries, sessions, metrics, window, allow_observed):
     if (len(logs) > 1 and log is None) or (len(watches) > 1 and session is None):
         st.info('請選擇要對照的紀錄；未選取前只顯示可獨立確認的參數，不合併多筆資料。')
     result = calculate_parameters(log, session, metrics, window, allow_observed)
-    st.caption(f"日誌 {result['diary_id']} · 手錶 {result['session_id']} · {result['watch_source']}")
+    st.caption(f"日誌 {result['diary_id']} · 手錶 {result['session_id']}" + (f" · {result['watch_source']}" if session else ''))
+    if not watches:
+        st.info('此日沒有手錶睡眠紀錄。TST、SOL、WASO、SE 與入睡前指數需有手錶資料，可改選標示「日誌＋手錶」的日期。')
     for note in result['notes']:
         st.warning(note)
     for start in range(0, len(PARAMETERS), 3):
