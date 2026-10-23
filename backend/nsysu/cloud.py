@@ -59,7 +59,7 @@ def main():
     import streamlit as st
     import streamlit.components.v1 as components
 
-    st.set_page_config(page_title='深睡體驗營｜Apple Design', page_icon='🌙', layout='wide')
+    st.set_page_config(page_title='nsysu-eye-mask-sleep-monitor', page_icon='🌙', layout='wide')
     st.session_state['_nsysu_cloud'] = True
     if st.query_params.get('view') == 'dashboard':
         from .dashboard_flow import main as dashboard
