@@ -108,15 +108,22 @@ def render_trend(fig, key, tools=False):
         fig.update_layout(dragmode='zoom', height=420)
         fig.update_xaxes(rangeslider=dict(visible=True, thickness=.1))
         fig.update_yaxes(fixedrange=False)
-    if dates > 7:
+    if dates > 1:
         # Keep every label at a readable width, without widening the whole mobile page.
         css_key = re.sub(r'[^a-zA-Z0-9_-]', '-', key) + '-all-dates'
+        desktop_min = str(dates * 48 + 96) + 'px' if dates > 7 else '0px'
         st.markdown(f'''<style>
         .st-key-{css_key}{{width:100%;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain}}
-        .st-key-{css_key} [data-testid="stElementContainer"]{{width:100%!important;min-width:{dates * 48 + 96}px;max-width:none}}
-        .st-key-{css_key} [data-testid="stPlotlyChart"]{{min-width:{dates * 48 + 96}px}}
+        .st-key-{css_key} [data-testid="stElementContainer"]{{width:100%!important;min-width:{dates * 56 + 96}px;max-width:none}}
+        .st-key-{css_key} [data-testid="stPlotlyChart"]{{min-width:{dates * 56 + 96}px}}
+        .st-key-{css_key} .xtick text{{font-size:14px!important}}
+        @media(min-width:1280px){{
+          .st-key-{css_key} [data-testid="stElementContainer"],.st-key-{css_key} [data-testid="stPlotlyChart"]{{min-width:{desktop_min}}}
+          .st-key-{css_key} .xtick text{{font-size:11px!important}}
+        }}
         </style>''', unsafe_allow_html=True)
-        st.caption('可左右滑動圖表，查看所有量測日期。')
+        if dates > 7:
+            st.caption('可左右滑動圖表，查看所有量測日期。')
         with st.container(key=css_key):
             st.plotly_chart(fig, key=key, width='stretch', config={**CHART_CONFIG, 'displayModeBar': tools})
     else:

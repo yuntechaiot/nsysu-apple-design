@@ -1,0 +1,55 @@
+/* Mobile-first layout; wider screens retain the existing Apple design. */
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent;scroll-padding-block:8rem calc(9rem + env(safe-area-inset-bottom,0px))}
+body{min-height:100svh}
+button,[role='button'],.btn,.scale-btn{min-width:2.75rem;min-height:2.75rem;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.btn,.scale-btn{min-height:3rem}
+input,select,textarea{font-size:1rem;max-width:100%;scroll-margin-block:8rem 9rem}
+.container,.header-inner,.card,.task-card,.hero-copy,.two-col>*,.three-col>*,.time-pair>*,.participant-share>*{min-width:0}
+h1,h2,h3{text-wrap:balance;scroll-margin-top:8rem}
+p,.lbl,.rec-head,.stat-card,.account-chip{overflow-wrap:anywhere}
+.container{padding:1.75rem max(1.25rem,env(safe-area-inset-right,0px)) calc(2.5rem + env(safe-area-inset-bottom,0px)) max(1.25rem,env(safe-area-inset-left,0px))}
+.task-grid,.two-col,.three-col,.time-pair,.step-panel[data-step='1'] .two-col,.participant-share,.review-list,.rec-grid{grid-template-columns:minmax(0,1fr)}
+.task-grid{gap:1rem}
+.header-inner{padding:calc(.7rem + env(safe-area-inset-top,0px)) max(1.25rem,env(safe-area-inset-right,0px)) .5rem max(1.25rem,env(safe-area-inset-left,0px));gap:.5rem;min-height:0}
+.brand{flex:1;width:auto;min-width:0;min-height:2.75rem;white-space:normal}
+.mobile-nav-toggle{display:inline-flex;align-items:center;justify-content:center}
+.header-nav{width:100%;flex-basis:100%;margin:0;gap:.5rem;flex-wrap:wrap}
+html.mobile-ui-ready .header-nav{display:none}
+html.mobile-ui-ready #nav-toggle[aria-expanded='true']~.header-nav{display:flex}
+.header-nav a,.header-nav .btn{min-height:2.75rem;padding:.5rem .75rem}
+.account-chip{display:block;white-space:normal}
+.hero{display:block;padding:1rem 0 2rem}
+.hero h1{padding-right:0;font-size:clamp(1.8rem,7.1vw,2.5rem)}
+.night-art{display:none}
+.hero p,.task-card p,.page-heading p,.step-description{font-size:1rem}
+.eyebrow,.hero .eyebrow,.hero-caption,.card-index,.helper-row>a,.helper-row>.btn,.intro-strip,.card-subtitle,.help,.info-box,.stepper li,.step-count,.scale-label-l,.scale-label-r,.review-list dt,.cnt,.site-footer,.directory-status,.account-chip,.dialog-status,.qr-card,.rec-grid{font-size:.875rem}
+.stepper li{overflow-wrap:anywhere}
+.step-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;padding-bottom:calc(1rem + env(safe-area-inset-bottom,0px))}
+.step-actions .btn{width:100%;min-width:0}
+.step-count{grid-column:1/-1;grid-row:1;text-align:center}
+.secondary-actions,.stats-row,.review-heading,.page-heading{flex-wrap:wrap}
+.scale-row{container-type:inline-size;container-name:rating}
+.scale-btns,.scale-btns:has(>.scale-btn:last-child:nth-child(5)){grid-template-columns:repeat(3,minmax(2.75rem,1fr));gap:.5rem}
+@container rating (min-width:20rem){.scale-btns{grid-template-columns:repeat(6,minmax(2.75rem,1fr))}.scale-btns:has(>.scale-btn:last-child:nth-child(5)){grid-template-columns:repeat(5,minmax(2.75rem,1fr))}}
+dialog,.modal{overscroll-behavior:contain;max-height:calc(100dvh - 2rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+.modal-overlay{padding:max(1rem,env(safe-area-inset-top,0px)) max(1rem,env(safe-area-inset-right,0px)) max(1rem,env(safe-area-inset-bottom,0px)) max(1rem,env(safe-area-inset-left,0px))}
+.participant-options{overscroll-behavior-y:contain}
+.modal table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+#export-table-wrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain}
+#export-table-wrap th,#export-table-wrap td{padding:.75rem;white-space:nowrap}
+.toast{overflow-wrap:anywhere}
+@media(min-width:48rem){
+ html{scroll-padding-block:7rem 2rem}.container{padding:2.75rem 2rem 4rem}.header-inner{padding:1rem 2rem;min-height:80px;gap:1.25rem}
+ .brand{flex:initial;width:auto;white-space:nowrap}.mobile-nav-toggle{display:none}
+ html.mobile-ui-ready .header-nav,.header-nav{display:flex;width:auto;flex-basis:auto;margin-left:auto;gap:1.4rem}
+ .header-nav a,.header-nav .btn{padding:0}.header-nav .btn{padding:.75rem 1.2rem}
+ .hero{display:grid;grid-template-columns:minmax(0,1fr) 230px;padding:2.5rem 0 3rem}.hero h1{font-size:clamp(2.25rem,5.2vw,3.75rem);padding-right:0}.night-art{display:block;position:relative;right:auto;top:auto}
+ .task-grid,.two-col,.review-list,.rec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.task-grid{gap:1.5rem}.three-col{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .time-pair,.step-panel[data-step='1'] .two-col{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}.participant-share{grid-template-columns:196px minmax(0,1fr)}
+ .step-actions{display:flex;gap:12px}.step-actions .btn{width:auto}
+ .hero p{font-size:1rem}.task-card p{font-size:.94rem}.page-heading p,.step-description{font-size:.9rem}
+ .eyebrow,.hero .eyebrow,.hero-caption,.cnt{font-size:.75rem}.card-index{font-size:.7rem}
+ .helper-row>a,.helper-row>.btn,.intro-strip,.step-count,.directory-status{font-size:.8rem}
+ .card-subtitle,.help,.info-box,.qr-card{font-size:.82rem}.stepper li,.account-chip{font-size:.76rem}
+ .scale-label-l,.scale-label-r{font-size:.78rem}.review-list dt{font-size:.77rem}.site-footer{font-size:.72rem}.dialog-status{font-size:.85rem}.rec-grid{font-size:.84rem}
+}

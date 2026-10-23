@@ -51,11 +51,11 @@ def _research_sleep_details(selected, diary, physiology=None):
     st.dataframe(pd.DataFrame(stages).drop(columns="minutes"), hide_index=True)
     available = [s for s in stages if s["minutes"] is not None]
     if available:
-        st.plotly_chart(go.Figure(go.Bar(x=[s["階段"] for s in available], y=[s["minutes"] for s in available], marker_color="#7F77DD")).update_layout(yaxis_title="分鐘", title="已提供的睡眠分期（缺值不補零）"))
+        st.plotly_chart(go.Figure(go.Bar(x=[s["階段"] for s in available], y=[s["minutes"] for s in available], marker_color="#7F77DD")).update_layout(yaxis_title="分鐘", title="已提供的睡眠分期（缺值不補零）"), width="stretch", config={'responsive': True})
     # A pie implies 100%; show one only when complete and consistent with TST.
     total = selected.get("tst_minutes")
     if total and len(available) == 4 and abs(sum(s["minutes"] for s in available) - total) < 0.01:
-        st.plotly_chart(go.Figure(go.Pie(labels=[s["階段"] for s in available], values=[s["minutes"] for s in available], hole=.6)).update_layout(title="睡眠分期比例（分母 TST）"))
+        st.plotly_chart(go.Figure(go.Pie(labels=[s["階段"] for s in available], values=[s["minutes"] for s in available], hole=.6)).update_layout(title="睡眠分期比例（分母 TST）"), width="stretch", config={'responsive': True})
     elif total is not None:
         unclassified = total - sum(s["minutes"] for s in available)
         st.caption(f"未分類／未提供分期：{duration_label(unclassified) if unclassified >= 0 else '來源加總不一致'}；不強迫比例為 100%。")
@@ -70,7 +70,7 @@ def _research_sleep_details(selected, diary, physiology=None):
                 label = {**LABELS, 'awake': '清醒', 'unknown': '未分類'}.get(stage['stage'], stage['stage'])
                 fig.add_trace(go.Bar(base=[dt], x=[stage["duration_minutes"] * 60000], y=[label], orientation="h", name=label))
         fig.update_layout(title="原始睡眠分期時間軸", xaxis=dict(type="date", tickformat="%m/%d %H:%M"), showlegend=False)
-        st.plotly_chart(fig)
+        st.plotly_chart(fig, width="stretch", config={'responsive': True})
         usable = [s for s in timeline if s.get("start_at") and s.get("end_at")]
         if usable:
             choices = {f"{i+1}. {s['stage']} {clock_label(s['start_at'])}–{clock_label(s['end_at'])}": s for i, s in enumerate(usable)}
@@ -85,7 +85,7 @@ def _research_sleep_details(selected, diary, physiology=None):
                     groups.setdefault(key, []).append(record["value"])
                 st.dataframe(pd.DataFrame([{"指標": k[0], "來源": k[1], "單位": k[2] or "未確認", "裝置": k[3] or "未提供", "區段平均": sum(values)/len(values), "實際筆數": len(values)} for k, values in groups.items()]), hide_index=True)
                 for index, fig in enumerate(metric_figures(segment, ["HR", "SBP", "DBP"])):
-                    st.plotly_chart(fig, key=f"sleep-segment-{index}")
+                    st.plotly_chart(fig, key=f"sleep-segment-{index}", width="stretch", config={'responsive': True})
             else:
                 st.info("此分期區段沒有可用生理資料")
 

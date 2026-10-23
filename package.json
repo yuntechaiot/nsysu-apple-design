@@ -6,6 +6,7 @@
     "build": "node tools/build_web.mjs",
     "lint": "node tools/check_frontend.mjs",
     "test": "node --test tests/web_platform/*.test.cjs",
+    "test:responsive": "python tools/verify_responsive_ui.py",
     "test:db": "node tools/pg_integration.mjs",
     "typecheck": "python -m mypy backend/nsysu --ignore-missing-imports --check-untyped-defs"
   },

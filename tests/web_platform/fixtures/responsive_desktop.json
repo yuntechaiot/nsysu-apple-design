@@ -1,0 +1,16 @@
+{
+  "home_desktop": {
+    "x": 180,
+    "width": 1080,
+    "padding": "44px 32px 64px",
+    "color": "rgb(29, 29, 31)",
+    "font": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"PingFang TC\", \"Noto Sans TC\", \"Microsoft JhengHei\", sans-serif"
+  },
+  "dashboard_desktop": {
+    "x": 300,
+    "width": 1140,
+    "padding": "56px 32px 64px",
+    "color": "rgb(29, 29, 31)",
+    "font": "-apple-system, BlinkMacSystemFont, \"PingFang TC\", system-ui, sans-serif"
+  }
+}

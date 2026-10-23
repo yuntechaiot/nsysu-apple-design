@@ -4,5 +4,7 @@ from pathlib import Path
 
 def apply():
     import streamlit as st
-    css = (Path(__file__).resolve().parents[2] / 'frontend/web/apple-dashboard.css').read_text(encoding='utf-8')
+    web = Path(__file__).resolve().parents[2] / 'frontend/web'
+    css = '\n'.join((web / name).read_text(encoding='utf-8')
+                    for name in ['apple-dashboard.css', 'responsive-dashboard.css'])
     st.markdown('<style>' + css + '</style>', unsafe_allow_html=True)

@@ -42,13 +42,14 @@ def diary_document(config, query=None):
     html = (ROOT / 'frontend/source/睡眠日誌表單.html').read_text(encoding='utf-8')
     html = re.sub(r'<script src="/web/[^\"]+" defer></script>', '', html)
     css = '\n'.join((ROOT / 'frontend/web' / name).read_text(encoding='utf-8')
-                    for name in ['app.css', 'apple.css'])
+                    for name in ['app.css', 'apple.css', 'responsive.css'])
     html = html.replace('<link rel="stylesheet" href="/web/app.css">', '<style>' + css + '</style>')
     html = html.replace('<link rel="stylesheet" href="/web/apple.css">', '')
+    html = html.replace('<link rel="stylesheet" href="/web/responsive.css">', '')
     boot = json.dumps({'config': config, 'initial_query': urlencode(allowed)}, ensure_ascii=False)
     boot = boot.replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
     scripts = ['<script>window.NSYSU_EMBED=' + boot + ';</script>']
-    for name in ['core.js', 'cloud-transport.js', 'qrcode.min.js', 'participants.js', 'invitations.js', 'management.js', 'history.js', 'diary.js', 'apple-motion.js']:
+    for name in ['core.js', 'cloud-transport.js', 'qrcode.min.js', 'participants.js', 'invitations.js', 'management.js', 'history.js', 'diary.js', 'apple-motion.js', 'mobile-ui.js']:
         code = (ROOT / 'frontend/web' / name).read_text(encoding='utf-8')
         scripts.append('<script>' + code.replace('</script', '<\\/script') + '</script>')
     return html.replace('</body>', '\n'.join(scripts) + '</body>')
@@ -75,7 +76,11 @@ def main():
     .block-container{padding:3.5rem 0 0;max-width:1200px}
     [data-testid="stHeader"]{background:rgba(245,245,247,.9)}
     [data-testid="stIFrame"]{border:0;display:block}
-    @media(max-width:650px){.block-container{padding:3.5rem 0 0}}
+    @media(max-width:767px){
+      [data-testid="stHeader"]{min-height:calc(3.5rem + env(safe-area-inset-top,0px));padding-top:env(safe-area-inset-top,0px)}
+      .block-container{padding:calc(3.5rem + env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);min-width:0}
+      [data-testid="stIFrame"]{width:100%;height:calc(100dvh - 3.5rem - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))}
+    }
     </style>''', unsafe_allow_html=True)
     # iframe 只包含本專案固定 HTML，不嵌入使用者 HTML。
     components.html(document, height=1150, scrolling=True, tab_index=0)
