@@ -1,9 +1,9 @@
-# NSYSU Apple Design · 深睡體驗營
+# nsysu-eye-mask-sleep-monitor · 深睡體驗營
 
 獨立的 Apple 風格、手機優先版本。原始專案 `../NSYSU` 與原網站 https://eye-mask-sleep-monitor.streamlit.app/ 不受此版本部署影響。
 
-- Repository: https://github.com/yuntechaiot/nsysu-apple-design
-- Streamlit: https://nsysu-apple-design.streamlit.app/
+- Repository: https://github.com/yuntechaiot/nsysu-eye-mask-sleep-monitor
+- Streamlit: https://nsysu-eye-mask-sleep-monitor.streamlit.app/
 - Branch: `main` · 入口: `streamlit_app.py` · Python: `3.12`
 
 ## 功能
