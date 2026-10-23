@@ -147,6 +147,10 @@ def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
                                   [{'睡眠參數': label, '單位': '依來源量尺', '定義／來源': '入睡前指定時窗內實際量測的平均，預設 60 分鐘'} for label in MEAN_LABELS.values()]),
                      hide_index=True, width='stretch')
     window = st.selectbox('入睡前觀察時窗（分鐘）', [30, 60, 120], index=1, key='sleep-parameters-window')
+    example_start = f'{(23 * 60 - window) // 60:02d}:{(23 * 60 - window) % 60:02d}'
+    st.caption(f'備註：用於計算入睡前 {window} 分鐘的平均壓力與疲倦指數。'
+               f'例如 23:00 入睡，會取 {example_start} 至 23:00 前的有效量測。'
+               '此設定不影響 TST、SOL、SE 等睡眠參數；時窗內沒有有效量測時顯示缺值。')
     # with st.expander('入睡時間來源設定'):
     #     allow_observed = st.checkbox('採用首筆睡眠分期起點供觀察', value=False, key='sleep-parameters-observed',
     #                                  help='來源未提供已確認入睡時間時，可選用首筆淺睡／深睡／REM 起點。這只代表已提供的觀測起點，不推估缺少的分期。')
