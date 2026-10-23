@@ -135,7 +135,7 @@ def single_view(diaries, sessions, metrics, window, allow_observed):
 
 def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
     st.subheader('睡眠參數')
-    st.caption('依「睡眠平台數據定義_20261020_yc」呈現；所有時刻使用台灣時間。')
+    # st.caption('依「睡眠平台數據定義_20261020_yc」呈現；所有時刻使用台灣時間。')
     st.info('本頁 TST＝日誌醒來－手錶入睡，SOL＝手錶入睡－日誌躺床；WASO 依文件採手錶清醒時間。既有「睡眠分析」研究指標保留原定義。')
     if context_status != 'success':
         st.warning('入睡前的歷史量測尚未完整載入，平均值可能缺少查詢首日前的資料；請按上方「查看資料」重新載入。')
@@ -147,11 +147,12 @@ def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
                                   [{'睡眠參數': label, '單位': '依來源量尺', '定義／來源': '入睡前指定時窗內實際量測的平均，預設 60 分鐘'} for label in MEAN_LABELS.values()]),
                      hide_index=True, width='stretch')
     window = st.selectbox('入睡前觀察時窗（分鐘）', [30, 60, 120], index=1, key='sleep-parameters-window')
-    with st.expander('入睡時間來源設定'):
-        allow_observed = st.checkbox('採用首筆睡眠分期起點供觀察', value=False, key='sleep-parameters-observed',
-                                     help='來源未提供已確認入睡時間時，可選用首筆淺睡／深睡／REM 起點。這只代表已提供的觀測起點，不推估缺少的分期。')
-        if allow_observed:
-            st.caption('只有缺少來源入睡時間時才使用分期起點；本頁會列出實際採用來源。')
+    # with st.expander('入睡時間來源設定'):
+    #     allow_observed = st.checkbox('採用首筆睡眠分期起點供觀察', value=False, key='sleep-parameters-observed',
+    #                                  help='來源未提供已確認入睡時間時，可選用首筆淺睡／深睡／REM 起點。這只代表已提供的觀測起點，不推估缺少的分期。')
+    #     if allow_observed:
+    #         st.caption('只有缺少來源入睡時間時才使用分期起點；本頁會列出實際採用來源。')
+    allow_observed = True
     mode = st.radio('參數顯示方式', ['單次觀察', '期間對照'], horizontal=True, key='sleep-parameters-mode')
     if mode == '單次觀察':
         single_view(diaries, sessions, metrics, window, allow_observed)
