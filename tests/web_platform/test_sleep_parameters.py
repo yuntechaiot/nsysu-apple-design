@@ -89,7 +89,7 @@ def test_true_zeros_missing_values_and_impossible_awake_summary():
     assert result['values']['awakening_count'] == result['values']['waso_minutes'] == result['values']['sol_minutes'] == 0
     assert result['values']['se_percent'] == 100
     assert calculate_parameters()['values'] == dict.fromkeys(result['values'])
-    assert calculate_parameters(log)['reasons']['sol_minutes'] == '缺少對應日期的手錶睡眠紀錄'
+    assert calculate_parameters(log)['reasons']['sol_minutes'].startswith('缺少對應日期的手錶睡眠紀錄')
     assert calculate_parameters(None, session)['reasons']['tst_minutes'] == '缺少對應日期的睡眠日誌'
     assert calculate_parameters(log, dict(session, awake_minutes=9999))['values']['waso_minutes'] is None
     assert calculate_parameters(dict(log, wakeup_count=1.5), session)['values']['awakening_count'] is None
@@ -102,6 +102,121 @@ def test_mismatched_members_dates_and_onsets_do_not_produce_hybrid_values():
         result = calculate_parameters(log, dict(session, **changes))
         assert result['values']['tst_minutes'] is None and result['values']['sol_minutes'] is None
         assert result['values']['tib_minutes'] == 525
+
+
+def diary_fallback_night():
+    log, session = night()
+    log.update(date='2026-10-23', bedtime_at='2026-10-23T00:30:00+08:00',
+               lights_out_at='2026-10-23T00:40:00+08:00', final_wake_at='2026-10-23T08:00:00+08:00',
+               out_of_bed_at='2026-10-23T11:00:00+08:00', sleep_onset_min=20, subjective_waso_minutes=10)
+    session.update(sleep_date=log['date'], start_at='2026-10-22T22:30:00+08:00',
+                   sleep_onset_at='2026-10-22T22:42:00+08:00', end_at='2026-10-23T08:00:00+08:00',
+                   awake_minutes=86)
+    return log, session
+
+
+def test_diary_fallback_for_conflicting_watch_preserves_word_equations_and_originals():
+    log, session = diary_fallback_night()
+    before = deepcopy((log, session))
+    result = calculate_parameters(log, session)
+    assert result['values'] == dict(tib_minutes=630, tst_minutes=420, sol_minutes=30, awakening_count=2,
+                                    waso_minutes=86, se_percent=pytest.approx(420 / 630 * 100), rise_minutes=180)
+    assert result['times']['onset'] == instant('2026-10-23T01:00:00+08:00')
+    assert result['times']['watch_onset'] == instant(session['sleep_onset_at'])
+    assert result['sources']['tst_minutes'] == '睡眠日誌備案'
+    assert result['sources']['waso_minutes'] == 'Word 公式：手錶清醒時間'
+    assert '日誌估算' in result['onset_basis']
+    assert (log, session) == before
+    period = period_parameters([log], [session], [])
+    assert len(period) == 1 and period[0]['values'] == result['values']
+    exported = record_table(period).iloc[0]
+    assert exported['整體入睡時間（TST）計算來源'] == '睡眠日誌備案'
+    assert exported['手錶原始入睡起點'] == '2026/10/22 22:42'
+
+
+def test_word_formula_has_priority_even_when_diary_latency_differs():
+    log, session = night()
+    result = calculate_parameters(dict(log, sleep_onset_min=120, subjective_waso_minutes=80), session)
+    assert result['values']['tst_minutes'] == 480 and result['values']['sol_minutes'] == 30
+    assert result['values']['waso_minutes'] == 30
+    assert result['sources']['tst_minutes'] == 'Word 公式（日誌＋手錶）'
+
+
+def test_period_prefers_existing_compatible_watch_over_conflicting_watch():
+    log, session = night()
+    log['sleep_onset_min'] = 120
+    conflict = dict(session, external_session_id='CONFLICT', sleep_onset_at='2026-10-19T22:00:00+08:00',
+                    start_at='2026-10-19T21:00:00+08:00')
+    rows = period_parameters([log], [session, conflict], [])
+    diary = next(row for row in rows if row['diary_id'] == log['id'])
+    assert diary['session_id'] == session['external_session_id']
+    assert diary['values']['tst_minutes'] == 480
+    assert diary['sources']['tst_minutes'] == 'Word 公式（日誌＋手錶）'
+
+
+def test_watch_only_pre_sleep_metrics_remain_available_without_a_diary():
+    _, session = night()
+    result = calculate_parameters(None, session, readings())
+    assert len(result['pre_sleep']) == 2
+    assert result['values']['tst_minutes'] is None
+
+
+def test_diary_only_fallback_uses_bed_only_when_attempt_missing_and_accepts_real_zeros():
+    log, _ = diary_fallback_night()
+    log.pop('lights_out_at')
+    result = calculate_parameters(dict(log, sleep_onset_min=0, subjective_waso_minutes=0))
+    assert result['values']['sol_minutes'] == result['values']['waso_minutes'] == 0
+    assert result['values']['tst_minutes'] == 450
+    assert '未填' in result['onset_basis']
+    log['lights_out_time'] = '00:40'
+    assert calculate_parameters(log)['values']['sol_minutes'] == 30
+    overnight, _ = night()
+    overnight.update(lights_out_time='22:45', sleep_onset_min=15)
+    overnight.pop('lights_out_at')
+    assert calculate_parameters(overnight)['values']['tst_minutes'] == 480
+
+
+@pytest.mark.parametrize('changes', [dict(sleep_onset_min=None), dict(sleep_onset_min=-1),
+                                    dict(sleep_onset_min=True), dict(sleep_onset_min=301),
+                                    dict(lights_out_at='2026-10-23T07:50:00+08:00'),
+                                    dict(lights_out_at='2026-10-23T00:00:00+08:00'),
+                                    dict(lights_out_at='invalid'), dict(date_definition='legacy')])
+def test_invalid_diary_fallback_never_forces_a_sleep_value(changes):
+    log, session = diary_fallback_night()
+    result = calculate_parameters(dict(log, **changes), session)
+    assert result['values']['tst_minutes'] is None and result['values']['sol_minutes'] is None
+    assert result['values']['se_percent'] is None
+
+
+@pytest.mark.parametrize('changes', [dict(member_id='OTHER'), dict(sleep_date='2026-10-24')])
+def test_unrelated_watch_is_not_used_for_fallback_waso_or_mean_member(changes):
+    log, session = diary_fallback_night()
+    metric = dict(metric='stress', value=8, member_id=log['member_id'],
+                  measured_at='2026-10-23T00:30:00+08:00')
+    result = calculate_parameters(log, dict(session, **changes), [metric])
+    assert result['values']['tst_minutes'] == 420 and result['values']['waso_minutes'] == 10
+    assert '日誌備案' in result['sources']['waso_minutes']
+    assert result['pre_sleep'][0]['mean'] == 8
+    assert result['window_start'] == '2026-10-23T00:00:00+08:00'
+
+
+@pytest.mark.parametrize('value', [None, -1, 421, True])
+def test_invalid_or_missing_subjective_waso_is_not_assumed_zero(value):
+    log, _ = diary_fallback_night()
+    result = calculate_parameters(dict(log, subjective_waso_minutes=value))
+    assert result['values']['waso_minutes'] is None
+    assert result['values']['tst_minutes'] == 420
+
+
+def test_fallback_ui_shows_actual_formula_and_both_onset_sources():
+    log, session = diary_fallback_night()
+    script = ('from nsysu.sleep_parameters_view import sleep_parameters_view\n'
+              f'sleep_parameters_view({[session]!r}, {[log]!r}, [])')
+    app = AppTest.from_string(script, default_timeout=30).run()
+    assert not app.exception
+    assert next(m for m in app.metric if m.label == '整體入睡時間（TST）').value == '420 分鐘'
+    assert any('睡眠日誌備案 · 日誌最後醒來時間－日誌估算入睡時間' in c.value for c in app.caption)
+    assert any('本次採用入睡時間' in frame.value['時刻'].values for frame in app.dataframe if '時刻' in frame.value)
 
 
 def test_means_are_half_open_finite_and_separate_by_source_device_version_scale():

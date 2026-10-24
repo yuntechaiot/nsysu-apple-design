@@ -25,18 +25,32 @@ def means_table(rows):
                           '首筆量測': clock(r['first_at']), '末筆量測': clock(r['last_at'])} for r in rows])
 
 
+def parameter_caption(result, key, definition):
+    source = result['sources'][key]
+    if source == '睡眠日誌備案':
+        definition = {'tst_minutes': '日誌最後醒來時間－日誌估算入睡時間',
+                      'sol_minutes': '日誌估算入睡時間－日誌躺床時間',
+                      'se_percent': '日誌備案 TST／總躺床時數 × 100%'}[key]
+    elif source.startswith('睡眠日誌備案：'):
+        definition = '日誌填寫的夜間清醒總分鐘'
+    return f'{source} · {definition}'
+
+
 def record_table(results):
     rows = []
     for result in results:
         row = {'睡眠日期': result['date'], '日誌紀錄': result['diary_id'], '手錶紀錄': result['session_id'],
                '手錶來源': result['watch_source']}
         row.update({label + f'（{unit}）': result['values'][key] for key, label, unit, _ in PARAMETERS})
+        row.update({label + '計算來源': result['sources'][key] for key, label, *_ in PARAMETERS})
         for metric, label in MEAN_LABELS.items():
             groups = [r for r in result['pre_sleep'] if r['metric'] == metric]
             row[label] = groups[0]['mean'] if len(groups) == 1 else None
             row[label + '筆數'] = groups[0]['count'] if len(groups) == 1 else None
             row[label + '說明'] = '多個系列，請查看入睡前指數明細' if len(groups) > 1 else groups[0]['unit'] if groups else '無可計算量測'
-        row.update({'入睡時間採用來源': result['onset_basis'], '入睡前時窗開始': clock(result['window_start']),
+        row.update({'入睡時間採用來源': result['onset_basis'], '採用入睡時間': clock(result['times']['onset']),
+                    '手錶原始入睡起點': clock(result['times']['watch_onset']),
+                    '入睡前時窗開始': clock(result['window_start']),
                     '入睡前時窗結束': clock(result['window_end']),
                     '定義版本': result['definition_version'],
                     '資料說明': '；'.join(dict.fromkeys(result['notes'] + [label + '：' + result['reasons'][key]
@@ -105,17 +119,19 @@ def single_view(diaries, sessions, metrics, window, allow_observed):
     result = calculate_parameters(log, session, metrics, window, allow_observed)
     st.caption(f"日誌 {result['diary_id']} · 手錶 {result['session_id']}" + (f" · {result['watch_source']}" if session else ''))
     if not watches:
-        st.info('此日沒有手錶睡眠紀錄。TST、SOL、WASO、SE 與入睡前指數需有手錶資料，可改選標示「日誌＋手錶」的日期。')
+        st.info('此日沒有手錶睡眠紀錄，改以睡眠日誌備案計算；未填寫的必要欄位仍會顯示缺值原因。')
     for note in result['notes']:
         st.warning(note)
     for start in range(0, len(PARAMETERS), 3):
         for col, (key, label, unit, definition) in zip(st.columns(3), PARAMETERS[start:start + 3]):
             with col, st.container(border=True):
                 value = result['values'][key]
-                st.metric(label, f'{value:,.2f}'.rstrip('0').rstrip('.') + ' ' + unit if value is not None else '—', help=definition)
-                st.caption(result['reasons'][key] if value is None else definition)
+                st.metric(label, f'{value:,.2f}'.rstrip('0').rstrip('.') + ' ' + unit if value is not None else '—',
+                          help=parameter_caption(result, key, definition) if value is not None else definition)
+                st.caption(result['reasons'][key] if value is None else parameter_caption(result, key, definition))
     st.markdown('#### 入睡前的壓力與疲倦')
     st.caption(f"觀察時窗：{clock(result['window_start'])} 至 {clock(result['window_end'])}，共 {window} 分鐘；包含起點、不含入睡當下。")
+    st.caption('觀察時窗的入睡時間來源：' + result['onset_basis'])
     for col, (metric, label) in zip(st.columns(2), MEAN_LABELS.items()):
         groups = [row for row in result['pre_sleep'] if row['metric'] == metric]
         with col, st.container(border=True):
@@ -128,15 +144,20 @@ def single_view(diaries, sessions, metrics, window, allow_observed):
         st.dataframe(means_table(result['pre_sleep']), hide_index=True, width='stretch')
     with st.expander('查看計算採用的時刻與來源'):
         st.dataframe(pd.DataFrame([{'時刻': label, '台灣日期時間': clock(result['times'][key])} for key, label in
-                                  [('bed', '日誌躺床'), ('onset', '手錶入睡'), ('wake', '日誌最後醒來'), ('out', '日誌離床')]]),
+                                  [('bed', '日誌躺床'), ('watch_onset', '手錶原始入睡起點'),
+                                   ('onset', '本次採用入睡時間'), ('wake', '日誌最後醒來'), ('out', '日誌離床')]]),
                      hide_index=True, width='stretch')
         st.caption('入睡時間採用來源：' + result['onset_basis'])
+        st.caption('手錶原始起點來源：' + result['watch_onset_basis'])
 
 
 def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
     st.subheader('睡眠參數')
     # st.caption('依「睡眠平台數據定義_20261020_yc」呈現；所有時刻使用台灣時間。')
     st.info('本頁 TST＝日誌醒來－手錶入睡，SOL＝手錶入睡－日誌躺床；WASO 依文件採手錶清醒時間。既有「睡眠分析」研究指標保留原定義。')
+    st.caption('優先採用 Word 公式；手錶入睡時間缺少或與日誌區間不一致時，改用日誌估算入睡時間計算 TST、SOL、SE。'
+               '日誌估算＝開始嘗試入睡時間＋自覺入睡所需分鐘；未填嘗試入睡時間時以上床時間為起點。'
+               '手錶清醒時間無法使用時，WASO 改採日誌夜間清醒總分鐘；必要資料缺少或時間矛盾時仍保留缺值。')
     if context_status != 'success':
         st.warning('入睡前的歷史量測尚未完整載入，平均值可能缺少查詢首日前的資料；請按上方「查看資料」重新載入。')
     if not sessions and not diaries:
@@ -144,6 +165,9 @@ def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
         return
     with st.expander('參數定義與資料來源'):
         st.dataframe(pd.DataFrame([{'睡眠參數': label, '單位': unit, '定義／來源': definition} for _, label, unit, definition in PARAMETERS] +
+                                  [{'睡眠參數': '日誌備案入睡時間', '單位': '台灣時間',
+                                    '定義／來源': '開始嘗試入睡時間（未填時採躺床時間）＋自覺入睡所需分鐘；代入 TST、SOL、SE，依各項標示來源'},
+                                   {'睡眠參數': 'WASO 日誌備案', '單位': '分鐘', '定義／來源': '手錶無有效清醒時間時，採日誌夜間清醒總分鐘'}] +
                                   [{'睡眠參數': label, '單位': '依來源量尺', '定義／來源': '入睡前指定時窗內實際量測的平均，預設 60 分鐘'} for label in MEAN_LABELS.values()]),
                      hide_index=True, width='stretch')
     window = st.selectbox('入睡前觀察時窗（分鐘）', [30, 60, 120], index=1, key='sleep-parameters-window')
@@ -161,7 +185,7 @@ def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
     if mode == '單次觀察':
         single_view(diaries, sessions, metrics, window, allow_observed)
     else:
-        st.caption('只自動配對日期與躺床區間相符且唯一的紀錄；多筆或資料不足時保留缺值與原因。')
+        st.caption('只自動配對同受試者、同日期且唯一的紀錄；入睡時間與日誌不一致時採日誌備案。多筆紀錄不自動合併。')
         results = period_parameters(diaries, sessions, metrics, window, allow_observed)
         table = record_table(results)
         st.dataframe(table, hide_index=True, width='stretch')
