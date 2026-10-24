@@ -29,7 +29,7 @@ def parameter_caption(result, key, definition):
     source = result['sources'][key]
     if source == '睡眠日誌備案':
         definition = {'tst_minutes': '日誌最後醒來時間－日誌估算入睡時間',
-                      'sol_minutes': '日誌估算入睡時間－日誌躺床時間',
+                      'sol_minutes': '日誌估算入睡時間－日誌開始嘗試入睡時間；負數以 0 計',
                       'se_percent': '日誌備案 TST／總躺床時數 × 100%'}[key]
     elif source.startswith('睡眠日誌備案：'):
         definition = '日誌填寫的夜間清醒總分鐘'
@@ -50,6 +50,9 @@ def record_table(results):
             row[label + '說明'] = '多個系列，請查看入睡前指數明細' if len(groups) > 1 else groups[0]['unit'] if groups else '無可計算量測'
         row.update({'入睡時間採用來源': result['onset_basis'], '採用入睡時間': clock(result['times']['onset']),
                     '手錶原始入睡起點': clock(result['times']['watch_onset']),
+                    '日誌開始嘗試入睡時間': clock(result['times']['attempt']),
+                    'SOL 採用入睡時間': clock(result['times']['sol_onset']),
+                    'SOL 入睡時間採用來源': result['sol_onset_basis'],
                     '入睡前時窗開始': clock(result['window_start']),
                     '入睡前時窗結束': clock(result['window_end']),
                     '定義版本': result['definition_version'],
@@ -144,19 +147,24 @@ def single_view(diaries, sessions, metrics, window, allow_observed):
         st.dataframe(means_table(result['pre_sleep']), hide_index=True, width='stretch')
     with st.expander('查看計算採用的時刻與來源'):
         st.dataframe(pd.DataFrame([{'時刻': label, '台灣日期時間': clock(result['times'][key])} for key, label in
-                                  [('bed', '日誌躺床'), ('watch_onset', '手錶原始入睡起點'),
-                                   ('onset', '本次採用入睡時間'), ('wake', '日誌最後醒來'), ('out', '日誌離床')]]),
+                                  [('bed', '日誌躺床'), ('attempt', '日誌開始嘗試入睡'),
+                                   ('watch_onset', '手錶原始入睡起點'), ('onset', '本次採用入睡時間'),
+                                   ('sol_onset', 'SOL 採用入睡時間'), ('wake', '日誌最後醒來'), ('out', '日誌離床')]]),
                      hide_index=True, width='stretch')
-        st.caption('入睡時間採用來源：' + result['onset_basis'])
+        st.caption('TST／入睡前觀察的入睡時間來源：' + result['onset_basis'])
+        st.caption('SOL 入睡時間採用來源：' + result['sol_onset_basis'])
         st.caption('手錶原始起點來源：' + result['watch_onset_basis'])
 
 
 def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
     st.subheader('睡眠參數')
     # st.caption('依「睡眠平台數據定義_20261020_yc」呈現；所有時刻使用台灣時間。')
-    st.info('本頁 TST＝日誌醒來－手錶入睡，SOL＝手錶入睡－日誌躺床；WASO 依文件採手錶清醒時間。既有「睡眠分析」研究指標保留原定義。')
-    st.caption('優先採用 Word 公式；手錶入睡時間缺少或與日誌區間不一致時，改用日誌估算入睡時間計算 TST、SOL、SE。'
+    st.info('本頁 TST＝日誌醒來－手錶入睡；SOL＝手錶入睡－日誌開始嘗試入睡，負數以 0 計。'
+            '嘗試入睡前躺床時間＝日誌開始嘗試入睡－日誌上床。WASO 依文件採手錶清醒時間。')
+    st.caption('TST、SE 優先採用 Word 公式；手錶入睡時間缺少或與日誌區間不一致時，改採日誌估算。'
+               'SOL 獨立優先採手錶入睡時間，負數以 0 計；手錶無有效入睡時間時才採日誌備案。'
                '日誌估算＝開始嘗試入睡時間＋自覺入睡所需分鐘；未填嘗試入睡時間時以上床時間為起點。'
+               'SOL 與嘗試入睡前躺床時間必須有日誌開始嘗試入睡時間，未填時顯示缺值。'
                '手錶清醒時間無法使用時，WASO 改採日誌夜間清醒總分鐘；必要資料缺少或時間矛盾時仍保留缺值。')
     if context_status != 'success':
         st.warning('入睡前的歷史量測尚未完整載入，平均值可能缺少查詢首日前的資料；請按上方「查看資料」重新載入。')
@@ -166,7 +174,7 @@ def sleep_parameters_view(sessions, diaries, metrics, context_status='success'):
     with st.expander('參數定義與資料來源'):
         st.dataframe(pd.DataFrame([{'睡眠參數': label, '單位': unit, '定義／來源': definition} for _, label, unit, definition in PARAMETERS] +
                                   [{'睡眠參數': '日誌備案入睡時間', '單位': '台灣時間',
-                                    '定義／來源': '開始嘗試入睡時間（未填時採躺床時間）＋自覺入睡所需分鐘；代入 TST、SOL、SE，依各項標示來源'},
+                                    '定義／來源': '開始嘗試入睡時間（未填時採躺床時間）＋自覺入睡所需分鐘；TST／SE 採此備案，SOL 另依其來源標示，且必須有開始嘗試入睡時間'},
                                    {'睡眠參數': 'WASO 日誌備案', '單位': '分鐘', '定義／來源': '手錶無有效清醒時間時，採日誌夜間清醒總分鐘'}] +
                                   [{'睡眠參數': label, '單位': '依來源量尺', '定義／來源': '入睡前指定時窗內實際量測的平均，預設 60 分鐘'} for label in MEAN_LABELS.values()]),
                      hide_index=True, width='stretch')

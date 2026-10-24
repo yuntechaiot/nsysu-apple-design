@@ -1,7 +1,7 @@
 """Display-only parameters from 睡眠平台數據定義_20261020_yc.docx.
 
-The document's elapsed TST, bed-based SOL and watch-awake WASO are deliberately
-separate from the existing research metrics. No source records are modified.
+The document's elapsed TST and watch-awake WASO, with the revised attempt-based
+SOL, are separate from existing research metrics. No source records are modified.
 """
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
@@ -11,15 +11,16 @@ import statistics
 from .dashboard_summary import series_key
 from .sleep import TZ, legacy_clock, local_clock, minutes_between, number
 
-DEFINITION_VERSION = 'sleep-parameters-word-20261020-diary-fallback-v1'
+DEFINITION_VERSION = 'sleep-parameters-20261020-diary-fallback-sol-attempt-v2'
 PARAMETERS = [
     ('tib_minutes', '總躺床時數', '分鐘', '日誌離床時間－日誌躺床時間'),
-    ('tst_minutes', '整體入睡時間（TST）', '分鐘', '日誌最後醒來時間－手錶入睡時間（文件定義）'),
-    ('sol_minutes', '睡眠潛伏期（SOL）', '分鐘', '手錶入睡時間－日誌躺床時間（文件定義）'),
+    ('tst_minutes', '整體入睡時間（TST）', '分鐘', '日誌最後醒來時間－手錶入睡時間'),
+    ('sol_minutes', '睡眠潛伏期（SOL）', '分鐘', '手錶入睡時間－日誌開始嘗試入睡時間；負數以 0 計'),
     ('awakening_count', '夜間醒來次數', '次', '個案睡眠日誌填寫的夜間醒來次數'),
     ('waso_minutes', '入睡後醒來時間（WASO）', '分鐘', '依文件採手錶清醒時間，不替代既有研究 WASO'),
     ('se_percent', '睡眠效率（SE）', '%', '本頁整體入睡時間／總躺床時數 × 100%'),
     ('rise_minutes', '賴床時間', '分鐘', '日誌離床時間－日誌最後醒來時間'),
+    ('pre_attempt_bed_minutes', '嘗試入睡前躺床時間', '分鐘', '日誌開始嘗試入睡時間－日誌上床時間'),
 ]
 MEAN_LABELS = {'stress': '入睡前平均壓力指數', 'fatigue': '入睡前平均疲倦指數'}
 
@@ -117,16 +118,12 @@ def pre_sleep_means(metrics, onset, window_minutes=60, member_id=None):
     return sorted(result, key=lambda row: (row['metric'], row['source'], row['device'], row['algorithm_version']))
 
 
-def diary_onset(log, times):
-    """Estimate only from supplied diary latency; never assume missing latency is zero."""
-    latency = number(log.get('sleep_onset_min'))
-    if latency is None or latency > 300:
-        return None, '日誌缺少有效的自覺入睡所需分鐘（0～300）'
+def diary_attempt(log, times):
+    """Read the supplied attempt time; never substitute bed time for this field."""
     bed, wake = times['bed'], times['wake']
     if bed is None or wake is None:
-        return None, '日誌估算入睡時間需有躺床與最後醒來時間'
+        return None, '核對開始嘗試入睡時間需有日誌躺床與最後醒來時間'
     attempt = instant(log.get('lights_out_at'))
-    basis = '開始嘗試入睡時間'
     if log.get('lights_out_at') and attempt is None:
         return None, '日誌開始嘗試入睡日期時間無效或缺少時區'
     if attempt is None and log.get('lights_out_time'):
@@ -137,6 +134,25 @@ def diary_onset(log, times):
         if attempt > wake:
             attempt -= timedelta(days=1)
     if attempt is None:
+        return None, '日誌未填開始嘗試入睡時間'
+    if not bed <= attempt <= wake:
+        return None, '日誌開始嘗試入睡時間不在上床至最後醒來的區間'
+    return attempt, ''
+
+
+def diary_onset(log, times):
+    """Estimate only from supplied diary latency; never assume missing latency is zero."""
+    latency = number(log.get('sleep_onset_min'))
+    if latency is None or latency > 300:
+        return None, '日誌缺少有效的自覺入睡所需分鐘（0～300）'
+    bed, wake = times['bed'], times['wake']
+    if bed is None or wake is None:
+        return None, '日誌估算入睡時間需有躺床與最後醒來時間'
+    attempt, issue = diary_attempt(log, times)
+    basis = '開始嘗試入睡時間'
+    if attempt is None:
+        if log.get('lights_out_at') or log.get('lights_out_time'):
+            return None, issue
         attempt, basis = bed, '躺床時間（未填開始嘗試入睡時間）'
     onset = attempt + timedelta(minutes=latency)
     if not bed <= attempt <= onset <= wake:
@@ -151,6 +167,7 @@ def calculate_parameters(log=None, session=None, metrics=None, window_minutes=60
     times, diary_issue = diary_times(log) if log else ({'bed': None, 'wake': None, 'out': None}, '缺少對應日期的睡眠日誌')
     onset, onset_basis = watch_onset(session, allow_observed)
     original_onset, original_basis = onset, onset_basis
+    attempt, attempt_issue = (None, diary_issue) if diary_issue else diary_attempt(log, times)
     sources = {key: '' for key in values}
     notes = [diary_issue] if log and diary_issue else []
     pairing_issue = ''
@@ -172,7 +189,7 @@ def calculate_parameters(log=None, session=None, metrics=None, window_minutes=60
         onset, diary_basis = diary_onset(log, times)
         if onset is not None:
             fallback, onset_basis = True, diary_basis
-            notes.append('Word 公式所需的手錶入睡時間缺少或與日誌不一致；TST、SOL、SE 改採日誌估算。')
+            notes.append('手錶入睡時間缺少或與日誌不一致；TST 與 SE 改採日誌估算。SOL 獨立依其標示來源計算，負數以 0 計。')
         else:
             onset_basis = (pairing_issue or original_basis) + '；日誌備案：' + diary_basis
     elif identity_issue:
@@ -180,17 +197,27 @@ def calculate_parameters(log=None, session=None, metrics=None, window_minutes=60
     if not diary_issue:
         values['tib_minutes'] = minutes_between(times['bed'], times['out'])
         values['rise_minutes'] = minutes_between(times['wake'], times['out'])
+        values['pre_attempt_bed_minutes'] = minutes_between(times['bed'], attempt)
     reasons['tib_minutes'] = diary_issue or '缺少日誌躺床或離床時間'
     reasons['rise_minutes'] = diary_issue or '缺少日誌最後醒來或離床時間'
+    reasons['pre_attempt_bed_minutes'] = attempt_issue or '缺少有效的日誌上床時間'
     count = number(log.get('wakeup_count'))
     if count is not None and count.is_integer():
         values['awakening_count'] = int(count)
     reasons['awakening_count'] = '缺少有效的日誌夜間醒來次數'
     if (not pairing_issue or fallback) and not diary_issue and onset:
         values['tst_minutes'] = minutes_between(onset, times['wake'])
-        values['sol_minutes'] = minutes_between(times['bed'], onset)
     reasons['tst_minutes'] = diary_issue or (onset_basis if not onset else pairing_issue or '缺少有效的日誌最後醒來時間')
-    reasons['sol_minutes'] = diary_issue or (onset_basis if not onset else pairing_issue or '缺少有效的日誌躺床時間')
+    # An early watch onset is usable for the revised SOL, even if TST uses the diary fallback.
+    sol_onset = original_onset if not identity_issue else None
+    sol_uses_watch = sol_onset is not None
+    if sol_onset is None or (times['wake'] and sol_onset > times['wake']):
+        sol_onset, sol_uses_watch = onset, False
+    sol_basis = original_basis if sol_uses_watch else onset_basis
+    if attempt is not None and sol_onset is not None:
+        values['sol_minutes'] = max(0.0, (sol_onset - attempt).total_seconds() / 60)
+        sources['sol_minutes'] = '修訂公式（日誌＋手錶）' if sol_uses_watch else '睡眠日誌備案'
+    reasons['sol_minutes'] = attempt_issue or sol_basis or '缺少有效入睡時間'
     tib, tst = values['tib_minutes'], values['tst_minutes']
     if tib is not None and tib > 0 and tst is not None and tst <= tib:
         values['se_percent'] = tst / tib * 100
@@ -221,8 +248,9 @@ def calculate_parameters(log=None, session=None, metrics=None, window_minutes=60
     member = log.get('member_id') or session.get('member_id')
     means = pre_sleep_means(metrics or [], onset if not log or not diary_issue else None, window_minutes, member)
     return {'date': str(log.get('date') or session.get('sleep_date') or ''), 'values': values, 'reasons': reasons,
-            'times': {**times, 'onset': onset, 'watch_onset': original_onset},
-            'onset_basis': onset_basis, 'watch_onset_basis': original_basis, 'sources': sources, 'notes': notes,
+            'times': {**times, 'attempt': attempt, 'onset': onset, 'watch_onset': original_onset, 'sol_onset': sol_onset},
+            'onset_basis': onset_basis, 'watch_onset_basis': original_basis, 'sol_onset_basis': sol_basis,
+            'sources': sources, 'notes': notes,
             'diary_id': str(log.get('id') or '未選取'),
             'session_id': str(session.get('external_session_id') or session.get('id') or '未選取'),
             'watch_source': session.get('source') or '未選取', 'pre_sleep': means,

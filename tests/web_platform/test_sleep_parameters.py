@@ -39,8 +39,9 @@ def test_all_word_formulas_differ_from_research_without_modifying_inputs():
     log, session = night()
     original = deepcopy((log, session))
     result = calculate_parameters(log, session, readings())
-    assert result['values'] == dict(tib_minutes=525, tst_minutes=480, sol_minutes=30, awakening_count=2,
-                                    waso_minutes=30, se_percent=pytest.approx(480 / 525 * 100), rise_minutes=15)
+    assert result['values'] == dict(tib_minutes=525, tst_minutes=480, sol_minutes=15, awakening_count=2,
+                                    waso_minutes=30, se_percent=pytest.approx(480 / 525 * 100), rise_minutes=15,
+                                    pre_attempt_bed_minutes=15)
     assert {r['metric']: (r['mean'], r['count']) for r in result['pre_sleep']} == {'stress': (0, 2), 'fatigue': (5, 2)}
     assert result['window_start'] == '2026-10-19T22:00:00+08:00'
     assert sleep_metrics(log, session)['sol_minutes'] == 15
@@ -77,14 +78,15 @@ def test_observed_stage_start_requires_opt_in_and_never_uses_session_start():
                          dict(stage='light', start_at='2026-10-19T23:00:00+08:00', end_at=None)]
     assert calculate_parameters(log, session)['values']['sol_minutes'] is None
     result = calculate_parameters(log, session, allow_observed=True)
-    assert result['values']['sol_minutes'] == 30 and '非完整' in result['onset_basis']
+    assert result['values']['sol_minutes'] == 15 and '非完整' in result['onset_basis']
     session['sleep_onset_at'] = 'invalid'
     assert calculate_parameters(log, session, allow_observed=True)['values']['sol_minutes'] is None
 
 
 def test_true_zeros_missing_values_and_impossible_awake_summary():
     log, session = night()
-    log.update(wakeup_count=0, bedtime_at=session['sleep_onset_at'], out_of_bed_at=log['final_wake_at'])
+    log.update(wakeup_count=0, bedtime_at=session['sleep_onset_at'], lights_out_at=session['sleep_onset_at'],
+               out_of_bed_at=log['final_wake_at'])
     result = calculate_parameters(log, dict(session, awake_minutes=0))
     assert result['values']['awakening_count'] == result['values']['waso_minutes'] == result['values']['sol_minutes'] == 0
     assert result['values']['se_percent'] == 100
@@ -119,11 +121,14 @@ def test_diary_fallback_for_conflicting_watch_preserves_word_equations_and_origi
     log, session = diary_fallback_night()
     before = deepcopy((log, session))
     result = calculate_parameters(log, session)
-    assert result['values'] == dict(tib_minutes=630, tst_minutes=420, sol_minutes=30, awakening_count=2,
-                                    waso_minutes=86, se_percent=pytest.approx(420 / 630 * 100), rise_minutes=180)
+    assert result['values'] == dict(tib_minutes=630, tst_minutes=420, sol_minutes=0, awakening_count=2,
+                                    waso_minutes=86, se_percent=pytest.approx(420 / 630 * 100), rise_minutes=180,
+                                    pre_attempt_bed_minutes=10)
     assert result['times']['onset'] == instant('2026-10-23T01:00:00+08:00')
     assert result['times']['watch_onset'] == instant(session['sleep_onset_at'])
     assert result['sources']['tst_minutes'] == '睡眠日誌備案'
+    assert result['sources']['sol_minutes'] == '修訂公式（日誌＋手錶）'
+    assert result['times']['sol_onset'] == result['times']['watch_onset']
     assert result['sources']['waso_minutes'] == 'Word 公式：手錶清醒時間'
     assert '日誌估算' in result['onset_basis']
     assert (log, session) == before
@@ -132,14 +137,80 @@ def test_diary_fallback_for_conflicting_watch_preserves_word_equations_and_origi
     exported = record_table(period).iloc[0]
     assert exported['整體入睡時間（TST）計算來源'] == '睡眠日誌備案'
     assert exported['手錶原始入睡起點'] == '2026/10/22 22:42'
+    assert exported['嘗試入睡前躺床時間（分鐘）'] == 10
+    assert exported['SOL 採用入睡時間'] == '2026/10/22 22:42'
+    assert exported['日誌開始嘗試入睡時間'] == '2026/10/23 00:40'
 
 
 def test_word_formula_has_priority_even_when_diary_latency_differs():
     log, session = night()
     result = calculate_parameters(dict(log, sleep_onset_min=120, subjective_waso_minutes=80), session)
-    assert result['values']['tst_minutes'] == 480 and result['values']['sol_minutes'] == 30
+    assert result['values']['tst_minutes'] == 480 and result['values']['sol_minutes'] == 15
     assert result['values']['waso_minutes'] == 30
     assert result['sources']['tst_minutes'] == 'Word 公式（日誌＋手錶）'
+
+
+@pytest.mark.parametrize('watch_clock,expected', [('22:20', 0), ('22:40', 0), ('22:45', 0), ('23:00', 15)])
+def test_revised_sol_uses_attempt_and_clamps_negative_even_before_bed(watch_clock, expected):
+    log, session = night()
+    result = calculate_parameters(log, dict(session, start_at='2026-10-19T22:00:00+08:00',
+                                           sleep_onset_at=f'2026-10-19T{watch_clock}:00+08:00'))
+    assert result['values']['sol_minutes'] == expected
+    assert result['values']['pre_attempt_bed_minutes'] == 15
+    assert result['sources']['sol_minutes'] == '修訂公式（日誌＋手錶）'
+
+
+def test_attempt_and_sol_across_midnight_use_dates_not_clock_subtraction():
+    log, session = night()
+    log.update(lights_out_at='2026-10-20T00:15:00+08:00')
+    result = calculate_parameters(log, dict(session, sleep_onset_at='2026-10-20T00:05:00+08:00'))
+    assert result['values']['sol_minutes'] == 0
+    assert result['values']['pre_attempt_bed_minutes'] == 105
+    log.pop('lights_out_at')
+    log['lights_out_time'] = '00:15'
+    assert calculate_parameters(log, session)['values']['pre_attempt_bed_minutes'] == 105
+    log['lights_out_time'] = '22:45'
+    assert calculate_parameters(log, session)['values']['pre_attempt_bed_minutes'] == 15
+
+
+@pytest.mark.parametrize('attempt', [None, 'invalid', '2026-10-19T22:45:00',
+                                   '2026-10-19T22:00:00+08:00', '2026-10-20T08:00:00+08:00'])
+def test_invalid_or_missing_attempt_is_not_replaced_with_bed_or_zero(attempt):
+    log, session = night()
+    result = calculate_parameters(dict(log, lights_out_at=attempt), session)
+    assert result['values']['sol_minutes'] is None
+    assert result['values']['pre_attempt_bed_minutes'] is None
+    assert result['reasons']['sol_minutes']
+    assert result['reasons']['pre_attempt_bed_minutes']
+    assert result['values']['tst_minutes'] == 480
+    assert result['values']['tib_minutes'] == 525
+
+
+def test_missing_watch_uses_diary_sol_without_including_pre_attempt_bed_time():
+    log, _ = diary_fallback_night()
+    result = calculate_parameters(log)
+    assert result['values']['sol_minutes'] == 20
+    assert result['values']['pre_attempt_bed_minutes'] == 10
+    assert result['sources']['sol_minutes'] == '睡眠日誌備案'
+    assert '開始嘗試' in result['sol_onset_basis']
+
+
+def test_watch_after_final_wake_uses_diary_sol_instead_of_positive_invalid_difference():
+    log, session = diary_fallback_night()
+    result = calculate_parameters(log, dict(session, sleep_onset_at='2026-10-23T09:00:00+08:00', end_at=None))
+    assert result['values']['sol_minutes'] == 20
+    assert result['sources']['sol_minutes'] == '睡眠日誌備案'
+
+
+def test_new_parameter_in_period_chart_and_csv_has_same_value_and_formula():
+    log, session = night()
+    rows = period_parameters([log], [session], [])
+    fig = parameter_figure(rows, 'pre_attempt_bed_minutes', '嘗試入睡前躺床時間', '分鐘')
+    assert list(fig.data[0].y) == [15]
+    exported = csv_bytes(record_table(rows)).decode('utf-8-sig')
+    assert '嘗試入睡前躺床時間（分鐘）' in exported
+    assert '嘗試入睡前躺床時間計算來源' in exported
+    assert '修訂公式（日誌＋手錶）' in exported
 
 
 def test_period_prefers_existing_compatible_watch_over_conflicting_watch():
@@ -165,11 +236,13 @@ def test_diary_only_fallback_uses_bed_only_when_attempt_missing_and_accepts_real
     log, _ = diary_fallback_night()
     log.pop('lights_out_at')
     result = calculate_parameters(dict(log, sleep_onset_min=0, subjective_waso_minutes=0))
-    assert result['values']['sol_minutes'] == result['values']['waso_minutes'] == 0
+    assert result['values']['waso_minutes'] == 0
+    assert result['values']['sol_minutes'] is None
+    assert result['values']['pre_attempt_bed_minutes'] is None
     assert result['values']['tst_minutes'] == 450
     assert '未填' in result['onset_basis']
     log['lights_out_time'] = '00:40'
-    assert calculate_parameters(log)['values']['sol_minutes'] == 30
+    assert calculate_parameters(log)['values']['sol_minutes'] == 20
     overnight, _ = night()
     overnight.update(lights_out_time='22:45', sleep_onset_min=15)
     overnight.pop('lights_out_at')
@@ -181,10 +254,12 @@ def test_diary_only_fallback_uses_bed_only_when_attempt_missing_and_accepts_real
                                     dict(lights_out_at='2026-10-23T07:50:00+08:00'),
                                     dict(lights_out_at='2026-10-23T00:00:00+08:00'),
                                     dict(lights_out_at='invalid'), dict(date_definition='legacy')])
-def test_invalid_diary_fallback_never_forces_a_sleep_value(changes):
+def test_invalid_diary_fallback_does_not_force_tst_but_watch_sol_is_independent(changes):
     log, session = diary_fallback_night()
     result = calculate_parameters(dict(log, **changes), session)
-    assert result['values']['tst_minutes'] is None and result['values']['sol_minutes'] is None
+    assert result['values']['tst_minutes'] is None
+    expected_sol = 0 if 'sleep_onset_min' in changes or changes.get('lights_out_at') == '2026-10-23T07:50:00+08:00' else None
+    assert result['values']['sol_minutes'] == expected_sol
     assert result['values']['se_percent'] is None
 
 
@@ -195,6 +270,8 @@ def test_unrelated_watch_is_not_used_for_fallback_waso_or_mean_member(changes):
                   measured_at='2026-10-23T00:30:00+08:00')
     result = calculate_parameters(log, dict(session, **changes), [metric])
     assert result['values']['tst_minutes'] == 420 and result['values']['waso_minutes'] == 10
+    assert result['values']['sol_minutes'] == 20
+    assert result['sources']['sol_minutes'] == '睡眠日誌備案'
     assert '日誌備案' in result['sources']['waso_minutes']
     assert result['pre_sleep'][0]['mean'] == 8
     assert result['window_start'] == '2026-10-23T00:00:00+08:00'
@@ -215,6 +292,8 @@ def test_fallback_ui_shows_actual_formula_and_both_onset_sources():
     app = AppTest.from_string(script, default_timeout=30).run()
     assert not app.exception
     assert next(m for m in app.metric if m.label == '整體入睡時間（TST）').value == '420 分鐘'
+    assert next(m for m in app.metric if m.label == '睡眠潛伏期（SOL）').value == '0 分鐘'
+    assert next(m for m in app.metric if m.label == '嘗試入睡前躺床時間').value == '10 分鐘'
     assert any('睡眠日誌備案 · 日誌最後醒來時間－日誌估算入睡時間' in c.value for c in app.caption)
     assert any('本次採用入睡時間' in frame.value['時刻'].values for frame in app.dataframe if '時刻' in frame.value)
 
@@ -329,10 +408,13 @@ sleep_parameters_view(SESSIONS, DIARIES, METRICS)
     assert not app.exception
     assert next(m for m in app.metric if m.label == '整體入睡時間（TST）').value == '480 分鐘'
     assert next(m for m in app.metric if m.label == '入睡前平均壓力指數').value == '0'
-    assert len(app.metric) == 9
+    assert len(app.metric) == 10
+    assert next(m for m in app.metric if m.label == '睡眠潛伏期（SOL）').value == '15 分鐘'
+    assert next(m for m in app.metric if m.label == '嘗試入睡前躺床時間').value == '15 分鐘'
     app.radio[0].set_value('期間對照').run()
     assert not app.exception
     assert any('睡眠效率（SE）（%）' in frame.value for frame in app.dataframe)
+    assert any('嘗試入睡前躺床時間（分鐘）' in frame.value for frame in app.dataframe)
     script = script.replace('SESSIONS', repr([session, dict(session, external_session_id='SECOND')])).replace('DIARIES', repr([log])).replace('METRICS', '[]')
     app = AppTest.from_string(script, default_timeout=30).run()
     assert not app.exception

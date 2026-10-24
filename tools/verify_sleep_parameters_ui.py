@@ -80,9 +80,9 @@ flow.main()
                 panel = page.get_by_role('tabpanel', name='睡眠參數', exact=True)
                 expect(panel.get_by_text('480 分鐘', exact=True)).to_be_visible()
                 expect(panel.get_by_text('525 分鐘', exact=True)).to_be_visible()
-                expect(panel.locator('[data-testid=stMetric]')).to_have_count(9)
+                expect(panel.locator('[data-testid=stMetric]')).to_have_count(10)
                 assert panel.locator('[data-testid=stMetricValue]').all_text_contents() == [
-                    '525 分鐘', '480 分鐘', '30 分鐘', '2 次', '30 分鐘', '91.43 %', '15 分鐘', '0', '5']
+                    '525 分鐘', '480 分鐘', '15 分鐘', '2 次', '30 分鐘', '91.43 %', '15 分鐘', '15 分鐘', '0', '5']
                 panel.scroll_into_view_if_needed()
                 page.screenshot(path=str(OUT / 'desktop.png'), full_page=True)
                 for width in (320, 390, 768, 1365):
@@ -113,7 +113,7 @@ flow.main()
         finally:
             child.terminate()
             child.wait(timeout=10)
-    print('PASS: eight dashboard tabs, nine correct parameter cards, mobile stacking, date ticks, period chart and CSV; synthetic data only')
+    print('PASS: eight dashboard tabs, ten correct parameter cards, mobile stacking, date ticks, period chart and CSV; synthetic data only')
 
 
 if __name__ == '__main__':
